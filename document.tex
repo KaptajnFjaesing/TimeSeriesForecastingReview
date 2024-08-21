@@ -1,0 +1,106 @@
+\documentclass[a4paper,11pt, oneside]{article}
+
+\usepackage[utf8] { inputenc }
+\usepackage[T1] { fontenc } 
+\usepackage[english]{babel}
+\usepackage{titlesec, blindtext, color}
+\definecolor{gray75}{gray}{0.75}
+\newcommand{\hsp}{\hspace{20pt}}
+
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage[titletoc]{appendix}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{braket}
+\usepackage{fullpage}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{titlepic}
+\usepackage [round,authoryear] {natbib}
+\usepackage{ifthen}
+\newtheorem{axiom}{Axiom}
+\newtheorem{theorem}{Theorem}
+\newtheorem{definition}{Definition}
+
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{amsmath}
+\usepackage{vhistory}
+\usepackage{xcolor}
+\usepackage{afterpage}
+\usepackage{tikz}
+\usepackage{transparent}
+\usepackage{geometry}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% Custom colours
+\definecolor{bestseller-grey}{RGB}{216, 216, 215}
+
+
+% Do not show subsections in table of contents
+\setcounter{tocdepth}{1}
+
+% Python code setup
+\usepackage{pythonhighlight}
+
+\DeclareMathOperator*{\argmax}{argmax}
+\DeclareMathOperator*{\argmin}{argmin}
+
+\theoremstyle{definition}
+\newtheorem{exinn}{Example}
+\newenvironment{example}
+{\clubpenalty=10000
+	\begin{exinn}%
+		\mbox{}%
+		{\color{black}\leaders\hrule height .8ex depth \dimexpr-.8ex+0.8pt\relax\hfill}%
+		\mbox{}\linebreak\ignorespaces}
+	{\par\kern2ex\hrule\end{exinn}}
+
+\input{macros.tex}
+
+\begin{document}
+	
+	
+	\begin{titlepage}
+		\title{\small{Competence Development}\\
+			\huge{Bayesian Decision Theory and Statistics Case Study}
+		}
+		\author{Jonas Petersen \\ Ander Runge Walther }
+		\date{} % No date on the title page
+		\maketitle
+		\thispagestyle{empty}
+	\end{titlepage}
+	\newpage
+	\begin{versionhistory}
+		\vhEntry{0.0.1}{21-08-2024}{JP}{Created}
+	\end{versionhistory}
+	
+	
+	\tableofcontents
+	\addtocontents{toc}{\protect\thispagestyle{plain}}
+	
+	\thispagestyle{plain}
+	
+	\input{sections/introduction.tex}
+	\input{sections/data.tex}
+	\input{sections/exploratory_analysis.tex}
+	\input{sections/method.tex}
+	\input{sections/results.tex}
+	\input{sections/summary_discussion.tex}
+	\input{sections/future_work.tex}
+	
+%	\newpage
+%	\begin{appendices}
+%
+%	\end{appendices}
+	
+	
+	
+	%\bibliographystyle{plainnat}
+	%\bibliography{refs}
+	
+\end{document}

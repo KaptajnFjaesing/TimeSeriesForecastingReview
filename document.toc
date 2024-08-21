@@ -1,0 +1,11 @@
+\babel@toc {english}{}\relax 
+\thispagestyle {plain}
+\contentsline {section}{\numberline {1}Introduction}{1}{section.1}%
+\contentsline {section}{\numberline {2}Data}{1}{section.2}%
+\contentsline {section}{\numberline {3}Exploratory Analysis}{1}{section.3}%
+\contentsline {section}{\numberline {4}Method}{1}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Simple Poisson Assumption}{2}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Advanced Poisson Assumption}{4}{subsection.4.2}%
+\contentsline {section}{\numberline {5}Results}{5}{section.5}%
+\contentsline {section}{\numberline {6}Summary and Discussion}{5}{section.6}%
+\contentsline {section}{\numberline {7}Future Work}{5}{section.7}%
