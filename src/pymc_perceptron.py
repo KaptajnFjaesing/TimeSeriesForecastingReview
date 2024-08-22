@@ -1,16 +1,10 @@
-#%%
-from functions import load_passengers_data
+#%% setup data
+from src.functions import load_passengers_data
 import pymc as pm
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-"""
-TLP_functions.py are in the VICKP project.
-
- - Input also the week of the year
-
-"""
 
 df_passengers = load_passengers_data()  # Load the data
 
@@ -38,21 +32,23 @@ forecast_horizon = 26  # Number of future time steps to predict
 lagged_features = create_lagged_features(df_passengers, 'Passengers', n_lags = n_lags, n_ahead = forecast_horizon)
 
 # Split the data
-train_size = int(len(lagged_features) * 0.6)  # 70% for training, 30% for testing
+train_size = int(len(lagged_features) * 0.6)  # 60% for training, 40% for testing
 training_data = lagged_features.iloc[:train_size]
 test_data = lagged_features.iloc[train_size:]
 
-# Define features and targets
-x_train = training_data[training_data.columns[:n_lags+1]]  # Lagged features
-y_train = training_data[training_data.columns[n_lags+1:]]  # Future targets
 
-x_test = test_data[test_data.columns[:n_lags+1]]  # Lagged features
-y_test = test_data[test_data.columns[n_lags+1:]]  # Future targets
+normalization = 400
+# Define features and targets
+x_train = training_data[training_data.columns[:n_lags+1]]/normalization  # Lagged features
+y_train = training_data[training_data.columns[n_lags+1:]]/normalization  # Future targets
+
+x_test = test_data[test_data.columns[:n_lags+1]]/normalization  # Lagged features
+y_test = test_data[test_data.columns[n_lags+1:]]/normalization  # Future targets
 
 if len(x_test)<forecast_horizon:    
     print("WARNING: Forecast_horizon too long relative to test/training split")
 
-#%%
+#%% define functions
 
 def predict(x, W_in, b_in, W_hidden, b_hidden, W_out, b_out, activation='relu'):
     """
@@ -98,8 +94,8 @@ def predict(x, W_in, b_in, W_hidden, b_hidden, W_out, b_out, activation='relu'):
 def construct_pymc_model(
         x_train: np.array,
         y_train: np.array,
-        n_hidden_layer1: int = 20,
-        n_hidden_layer2: int = 20,
+        n_hidden_layer1: int = 10,
+        n_hidden_layer2: int = 10,
         activation: str ='relu'
         ):
 
@@ -201,11 +197,11 @@ def construct_pymc_model(
 model = construct_pymc_model(x_train = x_train, y_train = y_train)
 
 
-# %%
+# %% train model
 with model:
-    posterior = pm.sample(tune=500, draws=1000, chains=1)
+    posterior = pm.sample(tune=50, draws=100, chains=1)
 
-# %%
+# %% plot results
 W_in = posterior.posterior['W_hidden1'].mean((('chain'))).values
 b_in = posterior.posterior['b_hidden1'].mean((('chain'))).values
 
@@ -216,20 +212,13 @@ W_out = posterior.posterior['W_output'].mean((('chain'))).values
 b_out = posterior.posterior['b_output'].mean((('chain'))).values
 
 
-"""
-I need to have the outputs be 52 or similar. Alternatively, I need to iterate predictions so
-I can generate a longer forecast. The latter will not contain uncertainty explicitly, so the
-former is superior.
 
-"""
 
-N_train = x_train.shape[1]+x_train.shape[0]-2
-N_test = len(df_passengers)-N_train
 
 preds = np.zeros((forecast_horizon,len(W_in)))
 for i in range(len(W_in)):
     preds[:,i] = predict(
-        x = x_test.iloc[forecast_horizon],
+        x = x_test.iloc[forecast_horizon:forecast_horizon+1],
         W_in = W_in[i],
         b_in = b_in[i],
         W_hidden = W_hidden[i],
@@ -239,12 +228,37 @@ for i in range(len(W_in)):
         activation='relu'
         )
 
+
+"""
+The logic here is that I want to test the model on data it has never seen
+during training. For this reason, the test data point is one point beyond the 
+last training target value; 
+
+x_test.iloc[forecast_horizon:forecast_horizon+1]
+
+This is element 104. The target predicts from one timestep ahead and 26
+further. This means from [105,130]. 'cut' is 105.
+
+
+"""
+
+
+N_train = x_train.shape[1]+x_train.shape[0]-2
+N_test = len(df_passengers)-N_train
+
 cut = N_train+forecast_horizon+2
 
-plt.figure()
+plt.figure(figsize = (20,10))
 plt.plot(np.arange(N_train+1),df_passengers['Passengers'].iloc[:N_train+1], label = "Training Data")
 for i in range(len(W_in)):
-    plt.plot(np.arange(cut,cut+forecast_horizon),preds[:,i], color = "red", alpha = 0.1)
-plt.plot(np.arange(cut,cut+forecast_horizon),preds.mean(axis = 1), label = "Model predictions", color = "black")
-plt.plot(np.arange(N_train,N_train+N_test),df_passengers['Passengers'].iloc[N_train:], label = "Training Data", color = "Green")
-plt.legend(loc='lower right')
+    plt.plot(np.arange(cut,cut+forecast_horizon),preds[:,i]*normalization, color = "red", alpha = 0.1)
+plt.plot(np.arange(cut,cut+forecast_horizon),preds.mean(axis = 1)*normalization, label = "Model predictions", color = "black")
+
+plt.plot(np.arange(N_train,N_train+N_test),df_passengers['Passengers'].iloc[N_train:], label = "Test Data", color = "Green")
+plt.ylabel("Passengers", fontsize=18)
+plt.xlabel("Month", fontsize=18)
+plt.xticks( fontsize=18)
+plt.yticks( fontsize=18)
+plt.minorticks_on()
+plt.grid(which='both', linestyle='--', linewidth=0.5)  # Customize grid appearance
+plt.legend(loc='upper left',fontsize=18)
