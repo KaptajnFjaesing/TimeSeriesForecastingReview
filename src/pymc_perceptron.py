@@ -2,21 +2,25 @@
 from functions import load_passengers_data
 import pymc as pm
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
 """
 TLP_functions.py are in the VICKP project.
 
+ - Input also the week of the year
+
 """
 
+df_passengers = load_passengers_data()  # Load the data
 
-df_passengers = load_passengers_data()
 
 def create_lagged_features(df, column_name, n_lags, n_ahead):
     """Create lagged features for a given column in the DataFrame, with future targets."""
     lagged_df = pd.DataFrame()
     
     # Create lagged features
-    for i in range(n_lags, 0, -1):
+    for i in range(n_lags, -1, -1):
         lagged_df[f'lag_{i}'] = df[column_name].shift(i)
     
     # Create future targets
@@ -27,34 +31,78 @@ def create_lagged_features(df, column_name, n_lags, n_ahead):
     return lagged_df
 
 # Parameters
-n_lags = 52  # Number of lagged time steps to use as features
-n_ahead = 10  # Number of future time steps to predict
+n_lags = 35  # Number of lagged time steps to use as features
+forecast_horizon = 26  # Number of future time steps to predict
 
 # Create lagged features and future targets
-lagged_features = create_lagged_features(df_passengers, 'Passengers', n_lags, n_ahead)
+lagged_features = create_lagged_features(df_passengers, 'Passengers', n_lags = n_lags, n_ahead = forecast_horizon)
 
 # Split the data
-train_size = int(len(lagged_features) * 0.7)  # 70% for training, 30% for testing
+train_size = int(len(lagged_features) * 0.6)  # 70% for training, 30% for testing
 training_data = lagged_features.iloc[:train_size]
 test_data = lagged_features.iloc[train_size:]
 
 # Define features and targets
-x_train = training_data[training_data.columns[:n_lags]]  # Lagged features
-y_train = training_data[training_data.columns[n_lags:]]  # Future targets
+x_train = training_data[training_data.columns[:n_lags+1]]  # Lagged features
+y_train = training_data[training_data.columns[n_lags+1:]]  # Future targets
 
-x_test = test_data[test_data.columns[:n_lags]]  # Lagged features
-y_test = test_data[test_data.columns[n_lags:]]  # Future targets
+x_test = test_data[test_data.columns[:n_lags+1]]  # Lagged features
+y_test = test_data[test_data.columns[n_lags+1:]]  # Future targets
 
+if len(x_test)<forecast_horizon:    
+    print("WARNING: Forecast_horizon too long relative to test/training split")
 
 #%%
+
+def predict(x, W_in, b_in, W_hidden, b_hidden, W_out, b_out, activation='relu'):
+    """
+    Predicts outputs using a two-layer perceptron with the given weights and biases.
+    
+    Parameters:
+    x (np.ndarray): Input data of shape (n_samples, n_features).
+    W_in (np.ndarray): Weights for the first hidden layer of shape (n_hidden_layer1, n_features).
+    b_in (np.ndarray): Biases for the first hidden layer of shape (n_hidden_layer1,).
+    W_hidden (np.ndarray): Weights for the second hidden layer of shape (n_hidden_layer2, n_hidden_layer1).
+    b_hidden (np.ndarray): Biases for the second hidden layer of shape (n_hidden_layer2,).
+    W_out (np.ndarray): Weights for the output layer of shape (1, n_hidden_layer2).
+    b_out (np.ndarray): Biases for the output layer of shape (1,).
+    activation (str): The activation function to use ('relu' or 'swish').
+    
+    Returns:
+    np.ndarray: Predicted outputs.
+    """
+    
+    # Compute the first hidden layer
+    linear_layer1 = np.dot(x, W_in.T) + b_in.T
+    if activation == 'relu':
+        hidden_layer1 = np.maximum(linear_layer1, 0)
+    elif activation == 'swish':
+        hidden_layer1 = linear_layer1 * (1 / (1 + np.exp(-linear_layer1)))
+    else:
+        raise ValueError("Unsupported activation function")
+    
+    # Compute the second hidden layer
+    linear_layer2 = np.dot(hidden_layer1, W_hidden.T) + b_hidden.T
+    if activation == 'relu':
+        hidden_layer2 = np.maximum(linear_layer2, 0)
+    elif activation == 'swish':
+        hidden_layer2 = linear_layer2 * (1 / (1 + np.exp(-linear_layer2)))
+    else:
+        raise ValueError("Unsupported activation function")
+    
+    # Compute the output layer
+    output = np.dot(hidden_layer2, W_out.T) + b_out.T
+    
+    return output
 
 def construct_pymc_model(
         x_train: np.array,
         y_train: np.array,
-        n_hidden_layer1: int = 24,
+        n_hidden_layer1: int = 20,
         n_hidden_layer2: int = 20,
         activation: str ='relu'
         ):
+
     with pm.Model() as model:
         n_features = x_train.shape[1]
         forecast_horizon = y_train.shape[1]
@@ -155,7 +203,7 @@ model = construct_pymc_model(x_train = x_train, y_train = y_train)
 
 # %%
 with model:
-    posterior = pm.sample(tune=50, draws=100, chains=1)
+    posterior = pm.sample(tune=500, draws=1000, chains=1)
 
 # %%
 W_in = posterior.posterior['W_hidden1'].mean((('chain'))).values
@@ -168,52 +216,6 @@ W_out = posterior.posterior['W_output'].mean((('chain'))).values
 b_out = posterior.posterior['b_output'].mean((('chain'))).values
 
 
-# %%
-
-def predict(x, W_in, b_in, W_hidden, b_hidden, W_out, b_out, activation='relu'):
-    """
-    Predicts outputs using a two-layer perceptron with the given weights and biases.
-    
-    Parameters:
-    x (np.ndarray): Input data of shape (n_samples, n_features).
-    W_in (np.ndarray): Weights for the first hidden layer of shape (n_hidden_layer1, n_features).
-    b_in (np.ndarray): Biases for the first hidden layer of shape (n_hidden_layer1,).
-    W_hidden (np.ndarray): Weights for the second hidden layer of shape (n_hidden_layer2, n_hidden_layer1).
-    b_hidden (np.ndarray): Biases for the second hidden layer of shape (n_hidden_layer2,).
-    W_out (np.ndarray): Weights for the output layer of shape (1, n_hidden_layer2).
-    b_out (np.ndarray): Biases for the output layer of shape (1,).
-    activation (str): The activation function to use ('relu' or 'swish').
-    
-    Returns:
-    np.ndarray: Predicted outputs.
-    """
-    
-    # Compute the first hidden layer
-    linear_layer1 = np.dot(x, W_in.T) + b_in.T
-    if activation == 'relu':
-        hidden_layer1 = np.maximum(linear_layer1, 0)
-    elif activation == 'swish':
-        hidden_layer1 = linear_layer1 * (1 / (1 + np.exp(-linear_layer1)))
-    else:
-        raise ValueError("Unsupported activation function")
-    
-    # Compute the second hidden layer
-    linear_layer2 = np.dot(hidden_layer1, W_hidden.T) + b_hidden.T
-    if activation == 'relu':
-        hidden_layer2 = np.maximum(linear_layer2, 0)
-    elif activation == 'swish':
-        hidden_layer2 = linear_layer2 * (1 / (1 + np.exp(-linear_layer2)))
-    else:
-        raise ValueError("Unsupported activation function")
-    
-    # Compute the output layer
-    output = np.dot(hidden_layer2, W_out.T) + b_out.T
-    
-    return output
-
-
-#%% TO this point
-
 """
 I need to have the outputs be 52 or similar. Alternatively, I need to iterate predictions so
 I can generate a longer forecast. The latter will not contain uncertainty explicitly, so the
@@ -221,27 +223,28 @@ former is superior.
 
 """
 
-preds = np.zeros((len(high_res_weeks),len(W_in)))
-for i in range(len(param_a)):
-    preds[:,i] = iteration1(param_a[i],param_b[i],param_c[i],n_terms,T,high_res_weeks)
+N_train = x_train.shape[1]+x_train.shape[0]-2
+N_test = len(df_passengers)-N_train
 
+preds = np.zeros((forecast_horizon,len(W_in)))
+for i in range(len(W_in)):
+    preds[:,i] = predict(
+        x = x_test.iloc[forecast_horizon],
+        W_in = W_in[i],
+        b_in = b_in[i],
+        W_hidden = W_hidden[i],
+        b_hidden = b_hidden[i],
+        W_out = W_out[i],
+        b_out = b_out[i],
+        activation='relu'
+        )
 
-y_pred = [predict(
-    x = x_test,
-    W_in = W_in[i],
-    b_in = b_in[i],
-    W_hidden = W_hidden[i],
-    b_hidden = b_hidden[i],
-    W_out = W_out[i],
-    b_out = b_out[i],
-    activation='relu'
-    ) for i in range(len(W_in))]
-# %%
-import matplotlib.pyplot as plt
+cut = N_train+forecast_horizon+2
 
 plt.figure()
-plt.plot(np.arange(len(y_train)),y_train, label = "Training Data")
-plt.plot(np.arange(len(y_train),len(y_train)+len(y_pred)),y_pred, label = "Model predictions")
-plt.plot(np.arange(len(y_train),len(y_train)+len(y_pred)),y_test ,label = "Test Data")
+plt.plot(np.arange(N_train+1),df_passengers['Passengers'].iloc[:N_train+1], label = "Training Data")
+for i in range(len(W_in)):
+    plt.plot(np.arange(cut,cut+forecast_horizon),preds[:,i], color = "red", alpha = 0.1)
+plt.plot(np.arange(cut,cut+forecast_horizon),preds.mean(axis = 1), label = "Model predictions", color = "black")
+plt.plot(np.arange(N_train,N_train+N_test),df_passengers['Passengers'].iloc[N_train:], label = "Training Data", color = "Green")
 plt.legend(loc='lower right')
-# %%
