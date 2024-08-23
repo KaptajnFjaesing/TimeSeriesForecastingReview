@@ -35,4 +35,5 @@ plt.plot(np.arange(len(df_passengers)-forecast_horizon,len(df_passengers)),mle_d
 plt.fill_between(np.arange(len(df_passengers)-forecast_horizon,len(df_passengers)),mle_df['mean_ci_lower'],mle_df['mean_ci_upper'],color='blue',alpha=0.2,label='MLE_forecast_CI')
 plt.xlabel('Time (months)')
 plt.ylabel('Nr. of passengers')
+plt.legend()
 plt.show()
