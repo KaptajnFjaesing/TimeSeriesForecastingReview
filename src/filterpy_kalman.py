@@ -1,13 +1,38 @@
 
+
 import numpy as np
 from src.functions import load_passengers_data
 import pandas as pd
 import matplotlib.pyplot as plt
 from filterpy.kalman import KalmanFilter
 
+
+
+"""
+
+I have a folder structure in my project on the form
+
+project 
+- src
+- data
+
+This file is located in src. I want to import functions from src also, and I want the root
+folder to be project, such that my import statement looks like this:
+
+from src.functions import load_passengers_data
+import sys
+from src.functions import load_passengers_data
+
+How do I do this?
+
+sys.path.insert(0, '/path/to/project')
+
+
+"""
 # Load your data
 df_passengers = load_passengers_data()  # Replace with your data loading function
 
+# %%
 # Convert DataFrame to numpy array
 data = df_passengers['Passengers'].values
 
