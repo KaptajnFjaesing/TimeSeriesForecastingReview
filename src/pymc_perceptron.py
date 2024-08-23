@@ -190,7 +190,12 @@ def construct_pymc_model(
 
         # Likelihood (using Normal distribution for regression)
         precision_obs = pm.Gamma('precision_obs', alpha=2.4, beta=3)
-        y_obs = pm.Normal('y_obs', mu=y_pred, sigma=1/np.sqrt(precision_obs), observed=y_train)
+        pm.Normal(
+            'y_obs',
+            mu = y_pred,
+            sigma = 1/np.sqrt(precision_obs),
+            observed = y_train
+            )
 
         return model
 
@@ -198,10 +203,16 @@ model = construct_pymc_model(x_train = x_train, y_train = y_train)
 
 
 # %% train model
+
 with model:
-    posterior = pm.sample(tune=50, draws=100, chains=1)
+    posterior = pm.sample(
+        tune = 100,
+        draws = 200,
+        chains = 1
+        )
 
 # %% plot results
+
 W_in = posterior.posterior['W_hidden1'].mean((('chain'))).values
 b_in = posterior.posterior['b_hidden1'].mean((('chain'))).values
 
@@ -210,9 +221,6 @@ b_hidden = posterior.posterior['b_hidden2'].mean((('chain'))).values
 
 W_out = posterior.posterior['W_output'].mean((('chain'))).values
 b_out = posterior.posterior['b_output'].mean((('chain'))).values
-
-
-
 
 
 preds = np.zeros((forecast_horizon,len(W_in)))
@@ -248,11 +256,21 @@ N_test = len(df_passengers)-N_train
 
 cut = N_train+forecast_horizon+2
 
-plt.figure(figsize = (20,10))
+plt.figure(figsize = (10,5))
 plt.plot(np.arange(N_train+1),df_passengers['Passengers'].iloc[:N_train+1], label = "Training Data")
 for i in range(len(W_in)):
-    plt.plot(np.arange(cut,cut+forecast_horizon),preds[:,i]*normalization, color = "red", alpha = 0.1)
-plt.plot(np.arange(cut,cut+forecast_horizon),preds.mean(axis = 1)*normalization, label = "Model predictions", color = "black")
+    plt.plot(
+        np.arange(cut,cut+forecast_horizon),
+        preds[:,i]*normalization,
+        color = "red",
+        alpha = 0.1
+        )
+plt.plot(
+    np.arange(cut,cut+forecast_horizon),
+    preds.mean(axis = 1)*normalization,
+    label = "Model predictions",
+    color = "black"
+    )
 
 plt.plot(np.arange(N_train,N_train+N_test),df_passengers['Passengers'].iloc[N_train:], label = "Test Data", color = "Green")
 plt.ylabel("Passengers", fontsize=18)
@@ -262,3 +280,17 @@ plt.yticks( fontsize=18)
 plt.minorticks_on()
 plt.grid(which='both', linestyle='--', linewidth=0.5)  # Customize grid appearance
 plt.legend(loc='upper left',fontsize=18)
+
+# %% 
+
+test_input = x_test.iloc[forecast_horizon:forecast_horizon+1]
+with model:
+    pm.set_data({'x': test_input})
+    posterior_predictive = pm.sample_posterior_predictive(posterior, extend_inferencedata=True, predictions=True)
+
+# %%
+predictions = posterior_predictive.predictions['y_obs'].mean((('chain'))).values*normalization
+
+print(test_input.shape)
+print(predictions.shape)
+print(preds.shape)

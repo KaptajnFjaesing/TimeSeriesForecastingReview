@@ -10,7 +10,7 @@ df_passengers = load_passengers_data()  # Load the data
 #%% Statespace model: Unobserved components model (structured time series)
 
 forecast_horizon = 26
-x_train = df_passengers['Passengers'].values[0:len(df_passengers)-forecast_horizon]
+x_train = df_passengers['Passengers'].values[:len(df_passengers)-forecast_horizon]
 struobs = sm.tsa.UnobservedComponents(x_train,
                                       level=True,
                                       trend=True,
@@ -30,7 +30,12 @@ mlefit.summary()
 mlefit.plot_components(figsize=(16,12))
 plt.show()
 #%%
-plt.plot(df_passengers['Passengers'],label='Actual')
+
+train_cut = len(df_passengers)-forecast_horizon
+
+plt.figure()
+plt.plot(df_passengers.index[:train_cut+1].values,df_passengers['Passengers'].values[:train_cut+1], label='Training data')
+plt.plot(df_passengers.index[train_cut:].values,df_passengers['Passengers'].values[train_cut:], label='Test data')
 plt.plot(np.arange(len(df_passengers)-forecast_horizon,len(df_passengers)),mle_df['mean'],label='MLE_mean_forecast')
 plt.fill_between(np.arange(len(df_passengers)-forecast_horizon,len(df_passengers)),mle_df['mean_ci_lower'],mle_df['mean_ci_upper'],color='blue',alpha=0.2,label='MLE_forecast_CI')
 plt.xlabel('Time (months)')
