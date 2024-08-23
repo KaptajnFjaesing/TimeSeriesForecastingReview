@@ -203,10 +203,16 @@ model = construct_pymc_model(x_train = x_train, y_train = y_train)
 
 
 # %% train model
+
 with model:
-    posterior = pm.sample(tune=100, draws=1000, chains=1)
+    posterior = pm.sample(
+        tune = 100,
+        draws = 200,
+        chains = 1
+        )
 
 # %% plot results
+
 W_in = posterior.posterior['W_hidden1'].mean((('chain'))).values
 b_in = posterior.posterior['b_hidden1'].mean((('chain'))).values
 
@@ -250,7 +256,7 @@ N_test = len(df_passengers)-N_train
 
 cut = N_train+forecast_horizon+2
 
-plt.figure(figsize = (20,10))
+plt.figure(figsize = (10,5))
 plt.plot(np.arange(N_train+1),df_passengers['Passengers'].iloc[:N_train+1], label = "Training Data")
 for i in range(len(W_in)):
     plt.plot(
@@ -277,12 +283,14 @@ plt.legend(loc='upper left',fontsize=18)
 
 # %% 
 
+test_input = x_test.iloc[forecast_horizon:forecast_horizon+1]
 with model:
-    pm.set_data({'x': x_test.iloc[forecast_horizon:forecast_horizon+1]})
+    pm.set_data({'x': test_input})
     posterior_predictive = pm.sample_posterior_predictive(posterior, extend_inferencedata=True, predictions=True)
 
 # %%
 predictions = posterior_predictive.predictions['y_obs'].mean((('chain'))).values*normalization
 
-
-preds.mean(axis = 1)*normalization
+print(test_input.shape)
+print(predictions.shape)
+print(preds.shape)
