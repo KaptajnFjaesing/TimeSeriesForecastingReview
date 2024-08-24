@@ -15,6 +15,21 @@ TLP_functions.py are in the VICKP project.
 
 df_passengers = load_passengers_data()  # Load the data
 
+
+
+training_split = int(len(df_passengers)*0.7)
+
+normalization = 1000
+
+x_train = df_passengers.index[:training_split].values/normalization
+y_train = df_passengers['Passengers'].iloc[:training_split]/normalization
+
+
+x_test = df_passengers.index[training_split:].values/normalization
+y_test = df_passengers['Passengers'].iloc[training_split:]/normalization
+
+
+
 def create_piecewise_trend(t, t_max, n_changepoints):    
     s = np.linspace(0, t_max, n_changepoints+2)[1:-1]
     A = (t[:, None] > s)*1
@@ -32,16 +47,12 @@ def generate_features(t, t_max, n_changepoints=10, n_fourier=6, p=365.25):
     return A, s, X
 
 # %%
-t = np.arange(df_passengers.shape[0])
-
-# This value isn't on the computation graph (it's not computed dynamically from `t_pt`)
-t_max = max(t)
 
 with pm.Model() as prophet_model:
-    t_pt = pm.Data('t', t)
+    t_pt = pm.Data('t', x_train, dims = ['n_obs'])
 
     # We have monthly data, so p=12 leads to annual seasonality
-    A, s, X = generate_features(t_pt, t_max, n_changepoints=10, n_fourier=6, p=12)
+    A, s, X = generate_features(t_pt, max(x_train), n_changepoints=10, n_fourier=6, p=12)
     
     initial_slope = pm.Normal('initial_slope')
     initial_intercept = pm.Normal('initial_intercept')
@@ -57,24 +68,22 @@ with pm.Model() as prophet_model:
     
     mu = pm.Deterministic('mu', intercept + slope * t_pt+ X @ beta)
     sigma = pm.Exponential('sigma', 1)
-    y_hat = pm.Normal('y_hat', mu=mu, sigma=sigma, observed=df_passengers['Passengers'].values.ravel(), shape=t_pt.shape[0])
+    y_hat = pm.Normal('y_hat', mu=mu, sigma=sigma, observed=y_train, dims = ['n_obs'])
     
-    idata = pm.sample(tune=500, draws=1000, chains=1)
+    idata = pm.sample(tune=100, draws=5000, chains=1)
     
 # %%
 
 with prophet_model:
-    last_t = t[-1]
-    forcast_t = np.arange(last_t, last_t + 36)
-    pm.set_data({'t':forcast_t})
-    posterior_predictive = pm.sample_posterior_predictive(idata, extend_inferencedata=True, predictions=True)
+    pm.set_data({'t':x_test})
+    posterior_predictive = pm.sample_posterior_predictive(idata, predictions=True)
     
-
-# %%
 predictions = posterior_predictive.predictions['y_hat'].mean((('chain'))).values
 
+#%%
 plt.figure()
-plt.plot(forcast_t,predictions.mean(axis = 0), color = 'black')
+plt.plot(x_test,predictions.mean(axis = 0), color = 'black')
 for i in predictions:
-    plt.plot(forcast_t,i, alpha = 0.01, color = 'red')
-plt.plot(idata.observed_data['y_hat'])
+    plt.plot(x_test,i, alpha = 0.01, color = 'red')
+plt.plot(x_train,y_train)
+plt.plot(x_test,y_test, color = "blue")
