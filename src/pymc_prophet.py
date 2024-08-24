@@ -70,7 +70,7 @@ with pm.Model() as prophet_model:
     sigma = pm.Exponential('sigma', 1)
     y_hat = pm.Normal('y_hat', mu=mu, sigma=sigma, observed=y_train, dims = ['n_obs'])
     
-    idata = pm.sample(tune=100, draws=5000, chains=1)
+    idata = pm.sample(tune=100, draws=500, chains=1)
     
 # %%
 

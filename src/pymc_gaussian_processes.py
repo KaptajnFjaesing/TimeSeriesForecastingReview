@@ -59,7 +59,7 @@ def construct_pymc_model(
 model, gp = construct_pymc_model(x_train = x_train, y_train = y_train)
 
 with model:
-    posterior = pm.sample(tune=500, draws=1000, chains=1, return_inferencedata=False)
+    posterior = pm.sample(tune=50, draws=100, chains=1, return_inferencedata=False)
 
 # %%
 x_test = np.linspace(10, 15, 50)[:, None]  # New time points for prediction
