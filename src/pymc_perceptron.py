@@ -49,22 +49,38 @@ if len(x_test)<forecast_horizon:
 #%% define functions
 import src.pymc_functions as fu_pymc
 
-model = fu_pymc.construct_pymc_tlp(x_train = x_train, y_train = y_train)
+activation = 'swish'
+n_hidden_layer1 = 20
+n_hidden_layer2 = 20
 
-draws = 1000
+
+model = fu_pymc.construct_pymc_tlp(
+    x_train = x_train,
+    y_train = y_train,
+    n_hidden_layer1 = n_hidden_layer1,
+    n_hidden_layer2 = n_hidden_layer2,
+    activation = activation
+    )
+
+
+draws = 500
 with model:
-    posterior = pm.sample(
-        tune = 500,
+    trace = pm.sample(
+        tune = 100,
         draws = draws,
-        chains = 1
+        chains = 1,
+        #target_accept = 0.9,
+        return_inferencedata = True
         )
 
 #%% Test with applying coefficients manually
 
+test_input = x_test.iloc[forecast_horizon:forecast_horizon+1]
+
 predictions = fu_pymc.predict_tlp(
-        posterior = posterior,
-        x_test = x_test.iloc[forecast_horizon:forecast_horizon+1],
-        activation = 'relu'
+        trace = trace,
+        x_test = test_input,
+        activation = activation
         )
 
 N_train = x_train.shape[1]+x_train.shape[0]-2
@@ -97,7 +113,6 @@ plt.grid(which='both', linestyle='--', linewidth=0.5)  # Customize grid appearan
 plt.legend(loc='upper left',fontsize=18)
 
 
-
 # %% Test with pm.sample_posterior_predictive
 
 """
@@ -114,24 +129,29 @@ magnitude determined by the number of samples. You do not have this artefact
 when using the coefficients manually..
 
 """
-
 test_input = x_test.iloc[forecast_horizon:forecast_horizon+1]
+
 with model:
     pm.set_data({'x': test_input})
     posterior_predictive = pm.sample_posterior_predictive(
-        trace = posterior,
+        trace = trace,
         predictions = True
         )
 
 predictions2 = posterior_predictive.predictions['y_obs'].mean((('chain'))).values
 
 plt.figure(figsize = (10,5))
+plt.plot(np.arange(N_train+1),df_passengers['Passengers'].iloc[:N_train+1], label = "Training Data")
+plt.plot(np.arange(N_train,N_train+N_test),df_passengers['Passengers'].iloc[N_train:], label = "Test Data", color = "Green")
+
 plt.plot(
+    np.arange(cut,cut+forecast_horizon),
     predictions.mean(axis = 1)*normalization,
     label = "Applying coefficients manually",
     color = "black"
     )
 plt.plot(
+    np.arange(cut,cut+forecast_horizon),
     predictions2.mean(axis = 0)[0]*normalization,
     label = "using sample_posterior_predictive",
     color = "cyan"
@@ -221,6 +241,7 @@ with model:
 predictions3 = posterior_predictive3.predictions['y_obs'].mean((('chain','draw'))).values
 
 print("")
-print("Is the model consistent? ", set(predictions3.sum(axis = 1)) == 1)
+print("Is the model consistent? ", len(set(predictions3.sum(axis = 1))) == 1)
 
+print(posterior_predictive3.predictions['y_obs'].mean(('chain','draw')).values)
 

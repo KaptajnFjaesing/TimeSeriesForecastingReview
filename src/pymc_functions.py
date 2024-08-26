@@ -2,6 +2,8 @@ import numpy as np
 import pymc as pm
 from pymc.backends.base import MultiTrace
 
+def swish(x):
+    return x / (1.0 + np.exp(-x))
 
 def construct_pymc_tlp(
         x_train: np.array,
@@ -18,8 +20,8 @@ def construct_pymc_tlp(
         x = pm.Data("x", x_train, dims = ['obs_dim', 'feature_dim'])
         y = pm.Data("y", y_train, dims = ['obs_dim', 'forecast_horizon'])
         # Priors for the weights and biases of the hidden layer 1
-        precision_hidden_w1 = pm.Gamma('precision_hidden_w1', alpha=2.4, beta=3)
-        precision_hidden_b1 = pm.Gamma('precision_hidden_b1', alpha=2.4, beta=3)
+        precision_hidden_w1 = pm.Gamma('precision_hidden_w1', alpha=1, beta=1)
+        precision_hidden_b1 = pm.Gamma('precision_hidden_b1', alpha=1, beta=1)
         
         # Hidden layer 1 weights and biases
         W_hidden1 = pm.Normal(
@@ -41,13 +43,14 @@ def construct_pymc_tlp(
         if activation == 'relu':
             hidden_layer1 = pm.math.maximum(linear_layer1, 0)
         elif activation == 'swish':
-            hidden_layer1 = linear_layer1 * pm.math.sigmoid(linear_layer1)
+            hidden_layer1 = swish(linear_layer1)
+            #hidden_layer1 = linear_layer1 * pm.math.sigmoid(linear_layer1)
         else:
             raise ValueError("Unsupported activation function")
 
         # Priors for the weights and biases of the hidden layer 2
-        precision_hidden_w2 = pm.Gamma('precision_hidden_w2', alpha=2.4, beta=3)
-        precision_hidden_b2 = pm.Gamma('precision_hidden_b2', alpha=2.4, beta=3)
+        precision_hidden_w2 = pm.Gamma('precision_hidden_w2', alpha=1, beta=1)
+        precision_hidden_b2 = pm.Gamma('precision_hidden_b2', alpha=1, beta=1)
         
         # Hidden layer 2 weights and biases
         W_hidden2 = pm.Normal(
@@ -69,13 +72,14 @@ def construct_pymc_tlp(
         if activation == 'relu':
             hidden_layer2 = pm.math.maximum(linear_layer2, 0)
         elif activation == 'swish':
-            hidden_layer2 = linear_layer1 * pm.math.sigmoid(linear_layer2)
+            hidden_layer2 = swish(linear_layer2)
+            #hidden_layer2 = linear_layer1 * pm.math.sigmoid(linear_layer2)
         else:
             raise ValueError("Unsupported activation function")
         
         # Priors for the weights and biases of the output layer
-        precision_output_w = pm.Gamma('precision_output_w', alpha=2.4, beta=3)
-        precision_output_b = pm.Gamma('precision_output_b', alpha=2.4, beta=3)
+        precision_output_w = pm.Gamma('precision_output_w', alpha=1, beta=1)
+        precision_output_b = pm.Gamma('precision_output_b', alpha=1, beta=1)
         
         # Output layer weights and biases
         W_output = pm.Normal('W_output', mu=0, sigma=1/np.sqrt(precision_output_w), shape=(forecast_horizon, n_hidden_layer2))
@@ -85,7 +89,7 @@ def construct_pymc_tlp(
         y_pred = pm.math.dot(hidden_layer2, W_output.T) + b_output
         
         # Likelihood (using Normal distribution for regression)
-        precision_obs = pm.Gamma('precision_obs', alpha=2.4, beta=3)
+        precision_obs = pm.Gamma('precision_obs', alpha=1, beta=1)
         pm.Normal(
             'y_obs',
             mu = y_pred,
@@ -148,20 +152,20 @@ def evaluate_tlp(
     return output
 
 def predict_tlp(
-        posterior: MultiTrace,
+        trace: MultiTrace,
         x_test: np.array,
         activation: str = 'relu'
         ) -> np.array:
     
     
-    W_in = posterior.posterior['W_hidden1'].mean((('chain'))).values
-    b_in = posterior.posterior['b_hidden1'].mean((('chain'))).values
+    W_in = trace.posterior['W_hidden1'].mean((('chain'))).values
+    b_in = trace.posterior['b_hidden1'].mean((('chain'))).values
     
-    W_hidden = posterior.posterior['W_hidden2'].mean((('chain'))).values
-    b_hidden = posterior.posterior['b_hidden2'].mean((('chain'))).values
+    W_hidden = trace.posterior['W_hidden2'].mean((('chain'))).values
+    b_hidden = trace.posterior['b_hidden2'].mean((('chain'))).values
     
-    W_out = posterior.posterior['W_output'].mean((('chain'))).values
-    b_out = posterior.posterior['b_output'].mean((('chain'))).values
+    W_out = trace.posterior['W_output'].mean((('chain'))).values
+    b_out = trace.posterior['b_output'].mean((('chain'))).values
     
     forecast_horizon = W_out.shape[1]
     

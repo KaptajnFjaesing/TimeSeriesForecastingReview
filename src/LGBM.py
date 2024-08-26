@@ -114,8 +114,6 @@ preds_df = pd.DataFrame(np.array(predictions).T, columns=[f'forecast_{i+1}' for 
 # Denormalize actual test targets
 y_test_denorm = y_test*normalization
 
-
-
 #%%
 # Visualize the results
 N_train = x_train.shape[1]+x_train.shape[0]-2
