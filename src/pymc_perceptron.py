@@ -1,4 +1,4 @@
-#%% setup data
+#%% Load data and feature engineering
 from src.functions import load_passengers_data
 import pymc as pm
 import numpy as np
@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 
 
 df_passengers = load_passengers_data()  # Load the data
-
 
 def create_lagged_features(df, column_name, n_lags, n_ahead):
     """Create lagged features for a given column in the DataFrame, with future targets."""
@@ -36,7 +35,6 @@ train_size = int(len(lagged_features) * 0.6)  # 60% for training, 40% for testin
 training_data = lagged_features.iloc[:train_size]
 test_data = lagged_features.iloc[train_size:]
 
-
 normalization = 400
 # Define features and targets
 x_train = training_data[training_data.columns[:n_lags+1]]/normalization  # Lagged features
@@ -49,225 +47,42 @@ if len(x_test)<forecast_horizon:
     print("WARNING: Forecast_horizon too long relative to test/training split")
 
 #%% define functions
+import src.pymc_functions as fu_pymc
 
-def predict(x, W_in, b_in, W_hidden, b_hidden, W_out, b_out, activation='relu'):
-    """
-    Predicts outputs using a two-layer perceptron with the given weights and biases.
-    
-    Parameters:
-    x (np.ndarray): Input data of shape (n_samples, n_features).
-    W_in (np.ndarray): Weights for the first hidden layer of shape (n_hidden_layer1, n_features).
-    b_in (np.ndarray): Biases for the first hidden layer of shape (n_hidden_layer1,).
-    W_hidden (np.ndarray): Weights for the second hidden layer of shape (n_hidden_layer2, n_hidden_layer1).
-    b_hidden (np.ndarray): Biases for the second hidden layer of shape (n_hidden_layer2,).
-    W_out (np.ndarray): Weights for the output layer of shape (1, n_hidden_layer2).
-    b_out (np.ndarray): Biases for the output layer of shape (1,).
-    activation (str): The activation function to use ('relu' or 'swish').
-    
-    Returns:
-    np.ndarray: Predicted outputs.
-    """
-    
-    # Compute the first hidden layer
-    linear_layer1 = np.dot(x, W_in.T) + b_in.T
-    if activation == 'relu':
-        hidden_layer1 = np.maximum(linear_layer1, 0)
-    elif activation == 'swish':
-        hidden_layer1 = linear_layer1 * (1 / (1 + np.exp(-linear_layer1)))
-    else:
-        raise ValueError("Unsupported activation function")
-    
-    # Compute the second hidden layer
-    linear_layer2 = np.dot(hidden_layer1, W_hidden.T) + b_hidden.T
-    if activation == 'relu':
-        hidden_layer2 = np.maximum(linear_layer2, 0)
-    elif activation == 'swish':
-        hidden_layer2 = linear_layer2 * (1 / (1 + np.exp(-linear_layer2)))
-    else:
-        raise ValueError("Unsupported activation function")
-    
-    # Compute the output layer
-    output = np.dot(hidden_layer2, W_out.T) + b_out.T
-    
-    return output
+model = fu_pymc.construct_pymc_tlp(x_train = x_train, y_train = y_train)
 
-def construct_pymc_model(
-        x_train: np.array,
-        y_train: np.array,
-        n_hidden_layer1: int = 10,
-        n_hidden_layer2: int = 10,
-        activation: str ='relu'
-        ):
-
-    with pm.Model() as model:
-        n_features = x_train.shape[1]
-        forecast_horizon = y_train.shape[1]
-        print("Forecast horizon ", forecast_horizon)
-        x = pm.Data("x", x_train)
-        print(f"input shape: {x.shape.eval()}")
-        # Priors for the weights and biases of the hidden layer 1
-        precision_hidden_w1 = pm.Gamma('precision_hidden_w1', alpha=2.4, beta=3)
-        precision_hidden_b1 = pm.Gamma('precision_hidden_b1', alpha=2.4, beta=3)
-        
-        # Hidden layer 1 weights and biases
-        W_hidden1 = pm.Normal(
-            'W_hidden1',
-            mu=0,
-            sigma=1/np.sqrt(precision_hidden_w1),
-            shape=(n_hidden_layer1, n_features)
-            )
-        b_hidden1 = pm.Normal(
-            'b_hidden1',
-            mu=0,
-            sigma=1/np.sqrt(precision_hidden_b1),
-            shape=(n_hidden_layer1,)
-            )
-        
-        # Compute the hidden layer 1 outputs
-        linear_layer1 = pm.math.dot(x, W_hidden1.T) + b_hidden1
-        
-        # Print shapes of intermediate computations
-        print(f"W_hidden1 shape: {W_hidden1.shape.eval()}")
-        print(f"b_hidden1 shape: {b_hidden1.shape.eval()}")
-        print(f"linear_layer1 shape: {linear_layer1.shape.eval()}")
-
-        if activation == 'relu':
-            hidden_layer1 = pm.math.maximum(linear_layer1, 0)
-        elif activation == 'swish':
-            hidden_layer1 = linear_layer1 * pm.math.sigmoid(linear_layer1)
-        else:
-            raise ValueError("Unsupported activation function")
-
-        # Priors for the weights and biases of the hidden layer 2
-        precision_hidden_w2 = pm.Gamma('precision_hidden_w2', alpha=2.4, beta=3)
-        precision_hidden_b2 = pm.Gamma('precision_hidden_b2', alpha=2.4, beta=3)
-        
-        # Hidden layer 2 weights and biases
-        W_hidden2 = pm.Normal(
-            'W_hidden2',
-            mu=0,
-            sigma=1/np.sqrt(precision_hidden_w2),
-            shape=(n_hidden_layer2, n_hidden_layer1)
-            )
-        b_hidden2 = pm.Normal(
-            'b_hidden2',
-            mu=0,
-            sigma=1/np.sqrt(precision_hidden_b2),
-            shape=(n_hidden_layer2,)
-            )
-        
-        # Compute the hidden layer 2 outputs
-        linear_layer2 = pm.math.dot(hidden_layer1, W_hidden2.T) + b_hidden2
-
-        print(f"W_hidden2 shape: {W_hidden2.shape.eval()}")
-        print(f"b_hidden2 shape: {b_hidden2.shape.eval()}")
-        print(f"linear_layer2 shape: {linear_layer2.shape.eval()}")
-
-        if activation == 'relu':
-            hidden_layer2 = pm.math.maximum(linear_layer2, 0)
-        elif activation == 'swish':
-            hidden_layer2 = linear_layer1 * pm.math.sigmoid(linear_layer2)
-        else:
-            raise ValueError("Unsupported activation function")
-        
-        # Priors for the weights and biases of the output layer
-        precision_output_w = pm.Gamma('precision_output_w', alpha=2.4, beta=3)
-        precision_output_b = pm.Gamma('precision_output_b', alpha=2.4, beta=3)
-        
-        # Output layer weights and biases
-        W_output = pm.Normal('W_output', mu=0, sigma=1/np.sqrt(precision_output_w), shape=(forecast_horizon, n_hidden_layer2))
-        b_output = pm.Normal('b_output', mu=0, sigma=1/np.sqrt(precision_output_b), shape=(forecast_horizon,))
-        
-        print(f"hidden_layer2 shape: {hidden_layer2.shape.eval()}")
-
-        # Compute the output (regression prediction)
-        y_pred = pm.math.dot(hidden_layer2, W_output.T) + b_output
-        
-        # Print shape of final prediction
-        print(f"W_output shape: {W_output.shape.eval()}")
-        print(f"b_output shape: {b_output.shape.eval()}")
-        print(f"y_pred shape: {y_pred.shape.eval()}")
-
-        # Likelihood (using Normal distribution for regression)
-        precision_obs = pm.Gamma('precision_obs', alpha=2.4, beta=3)
-        pm.Normal(
-            'y_obs',
-            mu = y_pred,
-            sigma = 1/np.sqrt(precision_obs),
-            observed = y_train
-            )
-
-        return model
-
-model = construct_pymc_model(x_train = x_train, y_train = y_train)
-
-
-# %% train model
-
+draws = 1000
 with model:
     posterior = pm.sample(
-        tune = 100,
-        draws = 200,
+        tune = 500,
+        draws = draws,
         chains = 1
         )
 
-# %% plot results
+#%% Test with applying coefficients manually
 
-W_in = posterior.posterior['W_hidden1'].mean((('chain'))).values
-b_in = posterior.posterior['b_hidden1'].mean((('chain'))).values
-
-W_hidden = posterior.posterior['W_hidden2'].mean((('chain'))).values
-b_hidden = posterior.posterior['b_hidden2'].mean((('chain'))).values
-
-W_out = posterior.posterior['W_output'].mean((('chain'))).values
-b_out = posterior.posterior['b_output'].mean((('chain'))).values
-
-
-preds = np.zeros((forecast_horizon,len(W_in)))
-for i in range(len(W_in)):
-    preds[:,i] = predict(
-        x = x_test.iloc[forecast_horizon:forecast_horizon+1],
-        W_in = W_in[i],
-        b_in = b_in[i],
-        W_hidden = W_hidden[i],
-        b_hidden = b_hidden[i],
-        W_out = W_out[i],
-        b_out = b_out[i],
-        activation='relu'
+predictions = fu_pymc.predict_tlp(
+        posterior = posterior,
+        x_test = x_test.iloc[forecast_horizon:forecast_horizon+1],
+        activation = 'relu'
         )
-
-
-"""
-The logic here is that I want to test the model on data it has never seen
-during training. For this reason, the test data point is one point beyond the 
-last training target value; 
-
-x_test.iloc[forecast_horizon:forecast_horizon+1]
-
-This is element 104. The target predicts from one timestep ahead and 26
-further. This means from [105,130]. 'cut' is 105.
-
-
-"""
-
 
 N_train = x_train.shape[1]+x_train.shape[0]-2
 N_test = len(df_passengers)-N_train
-
 cut = N_train+forecast_horizon+2
 
 plt.figure(figsize = (10,5))
 plt.plot(np.arange(N_train+1),df_passengers['Passengers'].iloc[:N_train+1], label = "Training Data")
-for i in range(len(W_in)):
+for i in range(draws):
     plt.plot(
         np.arange(cut,cut+forecast_horizon),
-        preds[:,i]*normalization,
+        predictions[:,i]*normalization,
         color = "red",
         alpha = 0.1
         )
 plt.plot(
     np.arange(cut,cut+forecast_horizon),
-    preds.mean(axis = 1)*normalization,
+    predictions.mean(axis = 1)*normalization,
     label = "Model predictions",
     color = "black"
     )
@@ -281,16 +96,131 @@ plt.minorticks_on()
 plt.grid(which='both', linestyle='--', linewidth=0.5)  # Customize grid appearance
 plt.legend(loc='upper left',fontsize=18)
 
-# %% 
+
+
+# %% Test with pm.sample_posterior_predictive
+
+"""
+The result is very close to the manual, but not the same! There is randomness
+in this result, since it is a random draw. However, the result should be
+deterministic given a fixed set of samples. This is not so, casting the
+workings of the backend into doubt..
+
+If you sample the distribution infinitely, it should be static.
+
+The problem becomes clear, if you try to plot predictions for several time
+steps in high resolution. In this case you will find random noise with
+magnitude determined by the number of samples. You do not have this artefact
+when using the coefficients manually..
+
+"""
 
 test_input = x_test.iloc[forecast_horizon:forecast_horizon+1]
 with model:
     pm.set_data({'x': test_input})
-    posterior_predictive = pm.sample_posterior_predictive(posterior, extend_inferencedata=True, predictions=True)
+    posterior_predictive = pm.sample_posterior_predictive(
+        trace = posterior,
+        predictions = True
+        )
 
-# %%
-predictions = posterior_predictive.predictions['y_obs'].mean((('chain'))).values*normalization
+predictions2 = posterior_predictive.predictions['y_obs'].mean((('chain'))).values
 
-print(test_input.shape)
-print(predictions.shape)
-print(preds.shape)
+plt.figure(figsize = (10,5))
+plt.plot(
+    predictions.mean(axis = 1)*normalization,
+    label = "Applying coefficients manually",
+    color = "black"
+    )
+plt.plot(
+    predictions2.mean(axis = 0)[0]*normalization,
+    label = "using sample_posterior_predictive",
+    color = "cyan"
+    )
+plt.ylabel("Passengers", fontsize=18)
+plt.xlabel("Month", fontsize=18)
+plt.xticks( fontsize=18)
+plt.yticks( fontsize=18)
+plt.minorticks_on()
+plt.grid(which='both', linestyle='--', linewidth=0.5)  # Customize grid appearance
+plt.legend(loc='upper left',fontsize=18)
+
+
+plt.figure(figsize = (10,5))
+for i in range(draws):
+    plt.plot(
+        predictions[:,i]*normalization,
+        color = "red",
+        alpha = 0.1
+        )
+plt.plot(
+    predictions.mean(axis = 1)*normalization,
+    label = "Model predictions",
+    color = "black"
+    )
+
+for i in range(draws):
+    plt.plot(
+        predictions2[i][0]*normalization,
+        color = "green",
+        alpha = 0.1
+        )
+plt.plot(
+    predictions2.mean(axis = 0)[0]*normalization,
+    label = "Model predictions",
+    color = "cyan"
+    )
+plt.ylabel("Passengers", fontsize=18)
+plt.xlabel("Month", fontsize=18)
+plt.xticks( fontsize=18)
+plt.yticks( fontsize=18)
+plt.minorticks_on()
+plt.grid(which='both', linestyle='--', linewidth=0.5)  # Customize grid appearance
+plt.legend(loc='upper left',fontsize=18)
+
+
+
+
+#%% Test if the output is consistent
+
+"""
+When making a model prediction, we are usually interested in the expected
+action of Nature, which often is equal to the expectation of some posterior
+distributution. If we fit a model, we can draw samples for the coefficients
+for the model and compute a model output for each coefficient. The expectation
+is then the arithmetic mean of the model outputs, corresponding to the mean of
+the model over different coefficients, sampled from the posterior.
+
+Given a a training session of the model, a given, fixed set of coefficients are
+obtained. This corresponds then to a fixed estimate of the mean over the model
+outputs. This is usually the quantity of interest. This does not seem to be 
+trivially available from pymc. I can get it by extracting the coefficients! 
+However, I would have wished there would be an easier way, since pymc has all
+the tools available. I thought pm.sample_posterior_predictive() did this, but
+it does not. There appear to be randomness in this, corresponding to sampling
+the posterior. Thus, given the same input, the sampler will yield different
+outputs. What do I do when I am only interested in the mean?
+
+"""
+
+
+M = 10
+test_input = x_test.iloc[forecast_horizon:forecast_horizon+1]
+test = np.ones((M,test_input.shape[1]))
+for i in range(M):
+    test[i] = test_input
+
+
+with model:
+    pm.set_data({'x': test_input})
+    posterior_predictive3 = pm.sample_posterior_predictive(
+        posterior,
+        return_inferencedata = True,
+        predictions = True
+        )
+
+predictions3 = posterior_predictive3.predictions['y_obs'].mean((('chain','draw'))).values
+
+print("")
+print("Is the model consistent? ", set(predictions3.sum(axis = 1)) == 1)
+
+
