@@ -28,7 +28,7 @@ y_test = (df_passengers['Passengers'].iloc[training_split:].values-y_train_mean)
 def create_fourier_features(
         t: np.array,
         n_fourier_components: int,
-        seasonality_period: float = 365.25
+        seasonality_period: float
         ):
     x = 2 * np.pi * (np.arange(n_fourier_components)+1) * t[:, None] / seasonality_period
     return pm.math.concatenate((np.cos(x), np.sin(x)), axis = 1)
@@ -149,7 +149,12 @@ plt.vlines(
 for i in predictions:
     plt.plot(X,i, alpha = 0.01, color = 'red')
 
+
 # %% Understand the model in order to tune it
+"""
+
+outdated code
+
 s = np.linspace(0, max(x_train), n_changepoints+2)[1:-1]
 A = (x_train[:, None] > s)*1.
 x = 2 * np.pi * (np.arange(n_fourier_components)+1) * x_train[:, None] / seasonality_period
@@ -177,4 +182,6 @@ plt.plot(seasonality1, label = 'seasonality')
 plt.plot(prediction1, label = 'prediction')
 plt.plot(y_train, label = "data")
 plt.legend()
+
+"""
 
