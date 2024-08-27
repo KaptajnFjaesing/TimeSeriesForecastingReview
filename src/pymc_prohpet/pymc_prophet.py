@@ -92,7 +92,8 @@ model = pymc_prophet(
     n_changepoints = n_changepoints,
     n_fourier_components = n_fourier_components
     )
-    
+
+# %% Training
 with model:
     trace = pm.sample(
         tune = 100,
