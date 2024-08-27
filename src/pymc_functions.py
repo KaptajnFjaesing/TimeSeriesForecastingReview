@@ -13,15 +13,17 @@ def construct_pymc_tlp(
         activation: str ='relu'
         ) -> pm.Model:
 
+    prior_alpha = 2.4
+    prior_beta = 3
     with pm.Model() as model:
         n_features = x_train.shape[1]
         forecast_horizon = y_train.shape[1]
         
         x = pm.Data("x", x_train, dims = ['obs_dim', 'feature_dim'])
-        y = pm.Data("y", y_train, dims = ['obs_dim', 'forecast_horizon'])
+        y = pm.Data("y", y_train, dims = ['obs_dim2', 'forecast_horizon'])
         # Priors for the weights and biases of the hidden layer 1
-        precision_hidden_w1 = pm.Gamma('precision_hidden_w1', alpha=1, beta=1)
-        precision_hidden_b1 = pm.Gamma('precision_hidden_b1', alpha=1, beta=1)
+        precision_hidden_w1 = pm.Gamma('precision_hidden_w1', alpha = prior_alpha, beta = prior_beta)
+        precision_hidden_b1 = pm.Gamma('precision_hidden_b1', alpha = prior_alpha, beta = prior_beta)
         
         # Hidden layer 1 weights and biases
         W_hidden1 = pm.Normal(
@@ -49,8 +51,8 @@ def construct_pymc_tlp(
             raise ValueError("Unsupported activation function")
 
         # Priors for the weights and biases of the hidden layer 2
-        precision_hidden_w2 = pm.Gamma('precision_hidden_w2', alpha=1, beta=1)
-        precision_hidden_b2 = pm.Gamma('precision_hidden_b2', alpha=1, beta=1)
+        precision_hidden_w2 = pm.Gamma('precision_hidden_w2', alpha = prior_alpha, beta = prior_beta)
+        precision_hidden_b2 = pm.Gamma('precision_hidden_b2', alpha = prior_alpha, beta = prior_beta)
         
         # Hidden layer 2 weights and biases
         W_hidden2 = pm.Normal(
@@ -78,8 +80,8 @@ def construct_pymc_tlp(
             raise ValueError("Unsupported activation function")
         
         # Priors for the weights and biases of the output layer
-        precision_output_w = pm.Gamma('precision_output_w', alpha=1, beta=1)
-        precision_output_b = pm.Gamma('precision_output_b', alpha=1, beta=1)
+        precision_output_w = pm.Gamma('precision_output_w', alpha = prior_alpha, beta = prior_beta)
+        precision_output_b = pm.Gamma('precision_output_b', alpha = prior_alpha, beta = prior_beta)
         
         # Output layer weights and biases
         W_output = pm.Normal('W_output', mu=0, sigma=1/np.sqrt(precision_output_w), shape=(forecast_horizon, n_hidden_layer2))
@@ -89,7 +91,7 @@ def construct_pymc_tlp(
         y_pred = pm.math.dot(hidden_layer2, W_output.T) + b_output
         
         # Likelihood (using Normal distribution for regression)
-        precision_obs = pm.Gamma('precision_obs', alpha=1, beta=1)
+        precision_obs = pm.Gamma('precision_obs', alpha = prior_alpha, beta = prior_beta)
         pm.Normal(
             'y_obs',
             mu = y_pred,

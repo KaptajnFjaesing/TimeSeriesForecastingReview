@@ -95,8 +95,8 @@ model = pymc_prophet(
     
 with model:
     trace = pm.sample(
-        tune = 500,
-        draws = 2000, 
+        tune = 100,
+        draws = 500, 
         chains = 1,
         cores = 1
         )
@@ -104,7 +104,37 @@ with model:
 #%% 
 pm.plot_trace(trace)
 
+
+import arviz as az
+
+X = x_test
+
+with model:
+    pm.set_data({'x':X})
+    posterior_predictive = pm.sample_posterior_predictive(trace = trace, predictions=True)
+
+preds_out_of_sample = posterior_predictive.predictions_constant_data.sortby('x')['x']
+model_preds = posterior_predictive.predictions.sortby(preds_out_of_sample)
+
+plt.figure()
+plt.plot(
+    preds_out_of_sample,
+    model_preds["obs"].mean(("chain", "draw"))
+    )
+hdi_values = az.hdi(model_preds)["obs"].transpose("hdi", ...)
+
+plt.fill_between(
+    preds_out_of_sample.values,
+    hdi_values[0].values,  # lower bound of the HDI
+    hdi_values[1].values,  # upper bound of the HDI
+    color="gray",   # color of the shaded region
+    alpha=0.4,      # transparency level of the shaded region
+)
+plt.plot(x_train,y_train)
+plt.plot(x_test,y_test, color = "blue")
 #%% Generate predictions
+
+"""
 
 X = x_test
 
@@ -120,6 +150,7 @@ for i in predictions:
     plt.plot(X,i, alpha = 0.01, color = 'red')
 plt.plot(x_train,y_train)
 plt.plot(x_test,y_test, color = "blue")
+"""
 
 
 # %% Alternative approach 
@@ -129,8 +160,6 @@ This is an alternative approach recommended by the official documentation
 
 https://www.pymc.io/projects/docs/en/stable/learn/core_notebooks/posterior_predictive.html
 
-
-"""
 import arviz as az
 
 preds_out_of_sample = posterior_predictive.predictions_constant_data.sortby('x')['x']
@@ -148,6 +177,12 @@ plt.vlines(
 )
 for i in predictions:
     plt.plot(X,i, alpha = 0.01, color = 'red')
+    
+
+
+"""
+
+    
 
 
 # %% Understand the model in order to tune it
