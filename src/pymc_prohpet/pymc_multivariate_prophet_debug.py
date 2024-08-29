@@ -1,86 +1,28 @@
-import pandas as pd
-
-sell_prices_df = pd.read_csv('./data/sell_prices.csv')
-train_sales_df = pd.read_csv('./data/sales_train_validation.csv')
-calendar_df = pd.read_csv('./data/calendar.csv')
-submission_file = pd.read_csv('./data/sample_submission.csv')
-
-#%%
-
-d_cols = [c for c in train_sales_df.columns if 'd_' in c]
-
-# Group by 'state_id' and sum the sales across the specified columns in `d_cols`
-sales_sum_df = train_sales_df.groupby(['state_id'])[d_cols].mean().T
-
-
-# Merge the summed sales data with the calendar DataFrame on the 'd' column and set the index to 'date'
-sales_states_df = sales_sum_df.merge(calendar_df.set_index('d')['date'], 
-                               left_index=True, right_index=True, 
-                               validate="1:1").set_index('date')
-# Ensure that the index of your DataFrame is in datetime format
-sales_states_df.index = pd.to_datetime(sales_states_df.index)
-
-
-#%%
-
-
+from src.functions import load_passengers_data
+import pymc as pm
+import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import datetime
+import pytensor as pt
 
-# Assuming sales_states_df.index is already a datetime index
-# Define your threshold date
-threshold_date = datetime.datetime(2016, 1, 1)
+df_passengers = load_passengers_data()  # Load the data
 
-# Filter the DataFrame to keep only rows with dates greater than the threshold
-sales_states__after_data_df = sales_states_df[sales_states_df.index > threshold_date]
-
-
-# Create the plot
-plt.figure(figsize=(10, 6))
-plt.plot(sales_states__after_data_df.index, sales_states__after_data_df['CA'], label='California')
-plt.plot(sales_states__after_data_df.index, sales_states__after_data_df['TX'], label='Texas')
-plt.plot(sales_states__after_data_df.index, sales_states__after_data_df['WI'], label='Wisconsin')
-
-# Format the x-axis to show only yearly ticks
-plt.gca().xaxis.set_major_locator(mdates.YearLocator())
-plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-
-
-# Optionally, rotate the x-axis labels for better readability
-plt.gcf().autofmt_xdate()
-
-# Add labels and legend
-plt.xlabel('Date')
-plt.ylabel('Sales')
-plt.legend()
-plt.title('Sales by State')
-
-
-#%%
-
-training_split = int(len(sales_states__after_data_df)*0.7)
-
-x_train_unnormalized = sales_states__after_data_df.index[:training_split].astype('int64').values // 10**9
-y_train_unnormalized = sales_states__after_data_df.iloc[:training_split]
+training_split = int(len(df_passengers)*0.7)
+ 
+x_train_unnormalized = df_passengers.index[:training_split].values
+y_train_unnormalized = df_passengers[['Passengers']].iloc[:training_split]
 
 x_train_mean = x_train_unnormalized.mean()
 x_train_std = x_train_unnormalized.std()
 
-y_train_mean = y_train_unnormalized.mean()
-y_train_std = y_train_unnormalized.std()
+y_train_mean = y_train_unnormalized.mean().values
+y_train_std = y_train_unnormalized.std().values
 
 x_train = (x_train_unnormalized-x_train_mean)/x_train_std
 y_train = (y_train_unnormalized-y_train_mean)/y_train_std
 
-x_test = (sales_states__after_data_df.index[training_split:].astype('int64').values // 10**9-x_train_mean)/x_train_std
-y_test = (sales_states__after_data_df.iloc[training_split:]-y_train_mean)/y_train_std
+x_test = (df_passengers.index[training_split:].values-x_train_mean)/x_train_std
+y_test = (df_passengers[['Passengers']].iloc[training_split:].values-y_train_mean)/y_train_std
 
-
-# %%
-import pymc as pm
-import numpy as np
-import pytensor as pt
 
 
 def create_fourier_features(
@@ -184,7 +126,14 @@ def pymc_prophet(
             dims = ['n_obs', 'n_time_series']
         )
     return model
- 
+
+#%%
+
+"""
+FIX THE CORRECT PERIOD !
+
+
+"""
 
 n_fourier_components_shared = 10
 seasonality_period_baseline_shared = 10
@@ -201,7 +150,7 @@ print("n_changepoints: ", n_changepoints)
 
 model =  pymc_prophet(
         x_train = x_train,
-        y_train = y_train[['CA']],
+        y_train = y_train,
         seasonality_period_baseline_shared = seasonality_period_baseline_shared,
         n_fourier_components_shared = n_fourier_components_shared,
         seasonality_period_baseline_individual = seasonality_period_baseline_individual,
@@ -220,6 +169,7 @@ with model:
     
 #%%
 
+
 import arviz as az
 
 X = x_train
@@ -228,36 +178,22 @@ with model:
     pm.set_data({'x':X})
     posterior_predictive = pm.sample_posterior_predictive(trace = trace, predictions=True)
 
-#%%
-
 preds_out_of_sample = posterior_predictive.predictions_constant_data.sortby('x')['x']
 model_preds = posterior_predictive.predictions.sortby(preds_out_of_sample)
-hdi_values = az.hdi(model_preds)["obs"].transpose("hdi", ...)
 
 plt.figure()
 plt.plot(
     preds_out_of_sample,
     model_preds["obs"].mean(("chain", "draw"))
     )
+hdi_values = az.hdi(model_preds)["obs"].transpose("hdi", ...)
+
+plt.fill_between(
+    preds_out_of_sample.values,
+    hdi_values[0].values,  # lower bound of the HDI
+    hdi_values[1].values,  # upper bound of the HDI
+    color="gray",   # color of the shaded region
+    alpha=0.4,      # transparency level of the shaded region
+)
 plt.plot(x_train,y_train)
-
-#%%
-plt.figure()
-colors = ['blue','red','green']
-
-for i in range(y_train.shape[1]):
-    plt.plot(
-        preds_out_of_sample,
-        (model_preds["obs"].mean(("chain", "draw")).T)[i],
-        color = colors[i]
-        )
-    plt.fill_between(
-        preds_out_of_sample.values,
-        hdi_values[0].values[:,i],  # lower bound of the HDI
-        hdi_values[1].values[:,i],  # upper bound of the HDI
-        color=colors[i],   # color of the shaded region
-        alpha=0.4,      # transparency level of the shaded region
-    )
-
-plt.plot(x_train,y_train)
-plt.plot(x_test,y_test)
+plt.plot(x_test,y_test, color = "blue")
