@@ -1,29 +1,19 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Aug 26 14:39:20 2024
-
-@author: AWR
-"""
-
-#%% setup data
-from src.functions import load_passengers_data
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-
-#%% Alternative import data
+#%% imports
+import xgboost as xgb
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import warnings
+from tqdm import tqdm
+
+warnings.simplefilter("ignore", category=RuntimeWarning)
+#%%
 current_dir = os.path.dirname(__file__)
 data_path = os.path.join(current_dir,'../data/passengers.csv')
 df_passengers = pd.read_csv(data_path)  # Load the data
 
-#%% Import data
-df_passengers = load_passengers_data()  # Load the data
-
-#%% Preprocess
+#%%
 df_passengers['Passengers'] = np.log(df_passengers['Passengers']) # Log-scale
 df_passengers_0 = df_passengers.iloc[0,:] # save first datapoint
 df_passengers['Passengers'] = df_passengers['Passengers'].diff().bfill() # Detrend
@@ -42,38 +32,13 @@ df_features['time_sine']=np.sin(2*np.pi*df_features.index/12) # Create a sine ti
 y_train = df_passengers.loc[df_features.index]['Passengers'] # Training target data
 
 #%%
-import lightgbm as lgb
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import warnings
-from tqdm import tqdm
-
-warnings.simplefilter("ignore", category=RuntimeWarning)
-
-# Create LightGBM datasets
-train_dataset = lgb.Dataset(
-    data = df_features.values,
-    label = y_train.values
-    )
-    
-# Define model parameters
-params = {
-    'verbose': -1,
-    'objective': 'regression',
-    'metric': 'rmse',
-    'boosting_type': 'gbdt',
-    'num_leaves': 5,
-    'learning_rate': 0.1,
-    'feature_fraction': 0.9
-}
-    
-# Train the model with early stopping
-model = lgb.train(
-    params,
-    train_dataset, 
-    num_boost_round = 2000
-    )
+model = xgb.XGBRegressor(objective='reg:absoluteerror',
+                        n_estimators=100,
+                        tree_method='hist',
+                        max_leaves=5,
+                        max_depth=20,
+                        learning_rate=0.1)
+model.fit(df_features, y_train)
 
 train_predict = model.predict(df_features.values)
 #%% Plot train target and predictions
