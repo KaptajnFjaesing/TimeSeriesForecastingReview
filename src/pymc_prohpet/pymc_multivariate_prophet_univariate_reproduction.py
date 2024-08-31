@@ -54,10 +54,8 @@ significant_indices = np.where(positive_magnitudes >= K * max_magnitude)[0]
 significant_frequencies = positive_freqs[significant_indices]
 significant_periods = 1 / significant_frequencies
 
-print(significant_periods)
 
 #%%
-
 def create_fourier_features(
         x: np.ndarray,
         n_fourier_components: int,
@@ -85,7 +83,7 @@ def add_fourier_term(
             sigma=5,
             shape=2 * n_fourier_components
         )
-        season_parameter = pm.Normal(f'season_parameter_{name}', mu=0, sigma=2, shape = dimension)
+        season_parameter = pm.Normal(f'season_parameter_{name}', mu=0, sigma=1, shape = dimension)
         seasonality_period = seasonality_period_baseline * pm.math.exp(season_parameter)
         
         fourier_features = create_fourier_features(
@@ -101,10 +99,10 @@ def add_fourier_term(
 def pymc_prophet(
         x_train: np.array,
         y_train: np.array,
+        seasonality_period_baseline_shared: float,
         n_fourier_components_shared: int,
+        seasonality_period_baseline_individual: float,
         n_fourier_components_individual: int,
-        shared_periods: list,
-        individual_periods: list,
         n_changepoints: int = 10
         ):
     
@@ -119,8 +117,8 @@ def pymc_prophet(
         A = (x[:, None] > s)*1.
     
         # Growth model parameters
-        k = pm.Normal('k', mu=0, sigma=5, shape=n_time_series)  # Shape matches time series
-        m = pm.Normal('m', mu=0, sigma=5, shape=n_time_series)
+        k = pm.Normal('k', mu=0, sigma=1, shape=n_time_series)  # Shape matches time series
+        m = pm.Normal('m', mu=0, sigma=1, shape=n_time_series)
         delta = pm.Laplace('delta', mu=0, b=0.5, shape = (n_time_series, n_changepoints))
         gamma = -s * delta  # Shape is (n_time_series, n_changepoints)
         # Trend calculation
@@ -129,34 +127,27 @@ def pymc_prophet(
     
         trend = growth*x[:, None] + offset  # Shape: (n_obs, n_time_series)
         
+        # shared Seasonality model
+        seasonality_shared = add_fourier_term(
+                model = model,
+                x = x,
+                n_fourier_components = n_fourier_components_shared,
+                name = "shared",
+                dimension = 1,
+                seasonality_period_baseline = seasonality_period_baseline_shared,
+                ) # (n_obs,1)
         
-        seasonalities_shared = pm.math.stack([
-            add_fourier_term(
-                model=model,
-                x=x,
-                n_fourier_components=n_fourier_components_shared,
-                name=f"shared_{i}",  # Iterating over name by appending the index
-                dimension=1,
-                seasonality_period_baseline=seasonality_period,
-            )
-            for i, seasonality_period in enumerate(shared_periods)
-        ])
-
-
-        seasonalities_individual = pm.math.stack([
-            add_fourier_term(
-                model=model,
-                x=x,
-                n_fourier_components=n_fourier_components_individual,
-                name=f"individual_{i}",  # Iterating over name by appending the index
-                dimension=n_time_series,
-                seasonality_period_baseline=seasonality_period,
-            )
-            for i, seasonality_period in enumerate(individual_periods)
-        ])
-
         
-        prediction = trend*(1+pm.math.sum(seasonalities_shared, axis=0)) + pm.math.sum(seasonalities_individual, axis=0) # (n_obs, n_time_series)
+        seasonality_individual = add_fourier_term(
+                model = model,
+                x = x,
+                n_fourier_components = n_fourier_components_individual,
+                name = "individual",
+                dimension = n_time_series,
+                seasonality_period_baseline = seasonality_period_baseline_individual,
+                ) # (n_obs, n_time_series)
+    
+        prediction = trend*(1+seasonality_individual) + seasonality_shared # (n_obs, n_time_series)
         error = pm.HalfCauchy('sigma', beta=1, dims = 'n_time_series')
         pm.Normal(
             'obs',
@@ -167,16 +158,16 @@ def pymc_prophet(
         )
     return model
 
-
-
-
 #%%
 
 
-n_fourier_components_shared = 10
-n_fourier_components_individual = 5
+n_fourier_components_shared = 5
+seasonality_period_baseline_shared = min(significant_periods)
 
-n_changepoints = 2
+n_fourier_components_individual = 5
+seasonality_period_baseline_individual = min(significant_periods)
+
+n_changepoints = 20
 
 print("n_obs: ", x_train.shape[0])
 print("n_time_series: ",y_train.shape[1])
@@ -186,22 +177,21 @@ print("n_changepoints: ", n_changepoints)
 model =  pymc_prophet(
         x_train = x_train,
         y_train = y_train,
+        seasonality_period_baseline_shared = seasonality_period_baseline_shared,
         n_fourier_components_shared = n_fourier_components_shared,
+        seasonality_period_baseline_individual = seasonality_period_baseline_individual,
         n_fourier_components_individual =  n_fourier_components_individual,
-        shared_periods = [significant_periods[2]],
-        individual_periods = [significant_periods[2]],
         n_changepoints = n_changepoints
         )
 
 # Training
 with model:
-    #step = pm.NUTS(step_scale=0.4)  # Manually set the step size
     trace = pm.sample(
         tune = 100,
-        draws = 500, 
-        chains = 4,
+        draws = 2000, 
+        chains = 5,
         cores = 1,
-        #target_accept=0.9 # default is 0.8
+        #target_accept = 0.9
         )
     
 #%%
