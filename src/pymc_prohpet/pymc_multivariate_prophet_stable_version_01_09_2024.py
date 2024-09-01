@@ -163,6 +163,20 @@ def pymc_prophet(
         x = pm.Data('x', x_train, dims= ['n_obs'])
         y = pm.Data('y', y_train, dims= ['n_obs_target', 'n_time_series'])
         
+        
+        """
+        s = pt.tensor.linspace(0, pm.math.max(x), n_changepoints+2)[1:-1]
+        A = (x[:, None] > s)*1.
+        
+        k = pm.Normal('k', mu = 0, sigma = 5)
+        m = pm.Normal('m', mu = 0, sigma = 5)
+        delta = pm.Laplace('delta', mu = 0, b = 0.5, shape = n_changepoints) # the b parameter has a big impact on the ability to over/underfit
+        gamma = -s*delta
+        growth = k+pm.math.dot(A,delta)
+        offset = m+pm.math.dot(A,gamma)
+        trend = growth*x+offset
+        """
+        
         linear_term = add_linear_term(
                 model = model,
                 x = x,
@@ -196,7 +210,24 @@ def pymc_prophet(
                 prior_alpha = prior_alpha,
                 prior_beta =prior_beta
                 )
-
+        
+        """
+        fourier_coefficients_1 = pm.Normal('fourier_coefficients1', mu = 0, sigma = 5, shape = 2*n_fourier_components) # parameters for each sine and cosine
+        fourier_coefficients_2 = pm.Normal('fourier_coefficients2', mu = 0, sigma = 5, shape = 2*n_fourier_components) # parameters for each sine and cosine
+        season_parameter = pm.Normal('season_parameter', mu = 0, sigma = 1)
+        seasonality_period = seasonality_period_baseline*pm.math.exp(season_parameter)
+        
+        fourier_sine_terms = create_fourier_features(
+            t = x,
+            n_fourier_components = n_fourier_components,
+            seasonality_period = seasonality_period
+            )
+        seasonality_1 = pm.math.dot(fourier_sine_terms,fourier_coefficients_1)
+        seasonality_2 = pm.math.dot(fourier_sine_terms,fourier_coefficients_2)
+        """
+        
+        print(seasonality_2.shape.eval(),linear_term.shape.eval())
+        
         prediction = linear_term[:,0]*(1+seasonality_2[:,0]) + seasonality_1[:,0]
         
         
@@ -217,28 +248,6 @@ def pymc_prophet(
     return model
 
 #%%
-
-
-"""
-TO THIS POINT:
-    I have managed to stabalize the method of the 
-    multivariate version in a univariate scenario.
-    
-    Next, I need to generalize this to multiple
-    dimensions while keeping the stability. 
-    
-    I need to:
-        1) alter the dimension of the seasonalities
-        2) manage the dimensionality of the predicition
-           variable.
-    
-    + The variability around the period appears to 
-    have been key in previous instability. This also
-    explains why timeseers is stable and my previous 
-    version was not.
-    
-
-"""
 
 
 n_fourier_components_shared = 5
