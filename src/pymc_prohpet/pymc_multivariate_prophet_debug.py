@@ -18,6 +18,10 @@ training_split = int(len(df_passengers)*0.7)
 x_train_unnormalized = df_passengers.index[:training_split].values
 y_train_unnormalized = df_passengers[['Passengers','Mock_Passengers']].iloc[:training_split]
 
+
+
+"""
+
 x_train_mean = x_train_unnormalized.mean()
 x_train_std = x_train_unnormalized.std()*2
 
@@ -33,6 +37,21 @@ y_test = (df_passengers[['Passengers','Mock_Passengers']].iloc[training_split:]-
 x_total = (df_passengers.index.values-x_train_mean)/x_train_std
 y_total = (df_passengers[['Passengers','Mock_Passengers']]-y_train_mean)/y_train_std
 
+"""
+
+x_train = (x_train_unnormalized-x_train_unnormalized.min())/(x_train_unnormalized.max()-x_train_unnormalized.min())
+y_train = (y_train_unnormalized-y_train_unnormalized.min())/(y_train_unnormalized.max()-y_train_unnormalized.min())
+
+x_test = (df_passengers.index[training_split:].values-x_train_unnormalized.min())/(x_train_unnormalized.max()-x_train_unnormalized.min())
+y_test = (df_passengers[['Passengers','Mock_Passengers']].iloc[training_split:]-y_train_unnormalized.min())/(y_train_unnormalized.max()-y_train_unnormalized.min())
+
+x_total = (df_passengers.index.values-x_train_unnormalized.min())/(x_train_unnormalized.max()-x_train_unnormalized.min())
+y_total = (df_passengers[['Passengers','Mock_Passengers']]-y_train_unnormalized.min())/(y_train_unnormalized.max()-y_train_unnormalized.min())
+
+
+
+
+#%%
 
 plt.figure()
 plt.plot(x_train, y_train)
@@ -105,7 +124,7 @@ def add_linear_term(
             sigma = 1/np.sqrt(precision_k),
             shape = n_time_series
             )  # Shape matches time series
-        delta = pm.Laplace(f'{name}_delta', mu=0, b = 0.2, shape = (n_time_series, n_changepoints)) # The parameter delta represents the magnitude and direction of the change in growth rate at each changepoint in a piecewise linear model.
+        delta = pm.Laplace(f'{name}_delta', mu=0, b = 0.4, shape = (n_time_series, n_changepoints)) # The parameter delta represents the magnitude and direction of the change in growth rate at each changepoint in a piecewise linear model.
         
         # Offset model parameters
         precision_m = pm.Gamma(
@@ -132,8 +151,8 @@ def add_fourier_term(
     with model:
         fourier_coefficients = pm.Normal(
             f'fourier_coefficients_{name}',
-            mu=0,
-            sigma=1,
+            mu = 0,
+            sigma = 10,
             shape= (2 * n_fourier_components, dimension)
         )
         
@@ -171,10 +190,10 @@ def pymc_prophet(
         x = pm.Data('x', x_train, dims= 'n_obs')
         y = pm.Data('y', y_train, dims= ['n_obs_target', 'n_time_series'])
         
-        linear_term = add_linear_term(
+        linear_term1 = add_linear_term(
                 model = model,
                 x = x,
-                name = 'linear',
+                name = 'linear1',
                 k_est = k_est,
                 n_time_series = n_time_series,
                 n_changepoints = n_changepoints,
@@ -182,12 +201,11 @@ def pymc_prophet(
                 prior_beta = prior_beta
                 )
         
-        
-        seasonality_individual = add_fourier_term(
+        seasonality_individual1 = add_fourier_term(
                 model = model,
                 x = x,
                 n_fourier_components = n_fourier_components,
-                name = 'seasonality_individual',
+                name = 'seasonality_individual1',
                 dimension = n_time_series,
                 seasonality_period_baseline = seasonality_period_baseline,
                 prior_alpha = prior_alpha,
@@ -206,7 +224,7 @@ def pymc_prophet(
                 )
         
         sign_indicator = pm.Bernoulli('sign_indicator', p=0.5, shape = n_time_series)
-        prediction = linear_term*(1+seasonality_individual) + ((2 * sign_indicator - 1))*seasonality_shared
+        prediction = (linear_term1+1)*(1+3*seasonality_individual1)-1 +((2 * sign_indicator - 1))*seasonality_shared
         
         precision_obs = pm.Gamma(
             'precision_obs',
@@ -214,8 +232,6 @@ def pymc_prophet(
             beta = prior_beta,
             dims = 'n_time_series'
             )
-        
-        #print(prediction[:,0,None].shape.eval())
         
         pm.Normal(
             'obs',
@@ -232,8 +248,8 @@ def pymc_prophet(
 #%%
 
 
-n_fourier_components = 10
-n_changepoints = 30
+n_fourier_components = 5
+n_changepoints = 20
 
 print("n_obs: ", x_train.shape[0])
 print("n_time_series: ",y_train.shape[1])
@@ -258,17 +274,19 @@ model =  pymc_prophet(
 with model:
     steps = [pm.NUTS(), pm.HamiltonianMC(), pm.Metropolis()]
     trace = pm.sample(
-        tune = 500,
-        draws = 5000, 
-        chains = 4,
+        tune = 100,
+        draws = 500, 
+        chains = 1,
         cores = 1,
-        step = steps[2]
+        step = steps[0]
         #target_accept = 0.9
         )
 
 #%%
 
-pm.plot_trace(trace)
+for variable in list(trace.posterior.data_vars):
+    pm.plot_trace(trace,
+                  var_names = [variable])
 
 
 #%%
@@ -286,6 +304,7 @@ preds_out_of_sample = posterior_predictive.predictions_constant_data.sortby('x')
 model_preds = posterior_predictive.predictions.sortby(preds_out_of_sample)
 
 hdi_values = az.hdi(model_preds)["obs"].transpose("hdi", ...)
+
 
 
 for i in range(target.shape[1]):
@@ -309,17 +328,26 @@ for i in range(target.shape[1]):
 
 
 # %% Plot trends and fourier components
-
-
-plt.figure()
-plt.plot(x_train,trace.posterior['linear_trend'].mean(('chain','draw')).values)
+print('k values: ', trace.posterior['linear1_k'].mean(('chain','draw')).values)
 
 plt.figure()
-plt.plot(x_train,trace.posterior['seasonality_individual_fourier'].mean(('chain','draw')).values)
+plt.plot(x_train,trace.posterior['linear1_trend'].mean(('chain','draw')).values, label = 'linear_trend')
+plt.legend()
 
 plt.figure()
-plt.plot(x_train,trace.posterior['seasonality_shared_fourier'].mean(('chain','draw')).values)
+plt.plot(x_train,trace.posterior['seasonality_individual1_fourier'].mean(('chain','draw')).values, label = 'seasonality_individual')
+plt.legend()
 
 plt.figure()
-plt.plot(x_train, trace.posterior['linear_trend'].mean(('chain','draw')).values*(1+trace.posterior['seasonality_individual_fourier'].mean(('chain','draw')).values))
+plt.plot(x_train,trace.posterior['seasonality_shared_fourier'].mean(('chain','draw')).values, label = 'seasonality_shared')
+plt.legend()
 
+#%%
+
+
+
+
+#%%
+plt.figure()
+plt.plot(x_train, (trace.posterior['linear_trend'].mean(('chain','draw')).values+1)*(0+trace.posterior['seasonality_individual_fourier'].mean(('chain','draw')).values)-1, label = 'trend and individual_seasonality')
+plt.legend()
