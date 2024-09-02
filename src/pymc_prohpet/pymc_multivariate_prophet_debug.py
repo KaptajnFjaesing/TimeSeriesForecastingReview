@@ -8,9 +8,9 @@ df_passengers = load_passengers_data()  # Load the data
 
 # Generate mock time series
 np.random.seed(42)  # For reproducibility
-trend = -80 + 1.4 * np.arange(len(df_passengers))
+trend = -80 - 0.7 * np.arange(len(df_passengers))
 noise = 1*np.random.normal(0, 10, len(df_passengers))
-df_passengers['Mock_Passengers'] = (df_passengers['Passengers']*(0.6-0.01*np.arange(len(df_passengers))) + trend + noise).astype(int)
+df_passengers['Mock_Passengers'] = (-df_passengers['Passengers']*(0.6-0.004*np.sqrt(np.arange(len(df_passengers)))) + trend + noise).astype(int)
 
 
 training_split = int(len(df_passengers)*0.7)
@@ -19,10 +19,10 @@ x_train_unnormalized = df_passengers.index[:training_split].values
 y_train_unnormalized = df_passengers[['Passengers','Mock_Passengers']].iloc[:training_split]
 
 x_train_mean = x_train_unnormalized.mean()
-x_train_std = x_train_unnormalized.std()
+x_train_std = x_train_unnormalized.std()*2
 
 y_train_mean = y_train_unnormalized.mean().values
-y_train_std = y_train_unnormalized.std().values
+y_train_std = y_train_unnormalized.std().values*2
 
 x_train = (x_train_unnormalized-x_train_mean)/x_train_std
 y_train = (y_train_unnormalized-y_train_mean)/y_train_std
@@ -35,7 +35,8 @@ y_total = (df_passengers[['Passengers','Mock_Passengers']]-y_train_mean)/y_train
 
 
 plt.figure()
-plt.plot(df_passengers['Date'], df_passengers[['Passengers','Mock_Passengers']])
+plt.plot(x_train, y_train)
+plt.plot(x_test, y_test)
 
 series = y_train.values[:,0]
 
@@ -104,8 +105,8 @@ def add_linear_term(
             sigma = 1/np.sqrt(precision_k),
             shape = n_time_series
             )  # Shape matches time series
-        delta = pm.Normal(f'{name}_delta', mu=0, sigma = 1, shape = (n_time_series, n_changepoints)) # The parameter delta represents the magnitude and direction of the change in growth rate at each changepoint in a piecewise linear model.
-
+        delta = pm.Laplace(f'{name}_delta', mu=0, b = 0.2, shape = (n_time_series, n_changepoints)) # The parameter delta represents the magnitude and direction of the change in growth rate at each changepoint in a piecewise linear model.
+        
         # Offset model parameters
         precision_m = pm.Gamma(
             f'precision_{name}_m',
@@ -114,7 +115,8 @@ def add_linear_term(
             )
         m = pm.Normal(f'{name}_m', mu=0, sigma = 1/np.sqrt(precision_m), shape=n_time_series)
         
-    return (k + pm.math.dot(A, delta.T))*x[:, None] + m + pm.math.dot(A, (-s * delta).T)
+        
+    return pm.Deterministic(f'{name}_trend',(k + pm.math.dot(A, delta.T))*x[:, None] + m + pm.math.dot(A, (-s * delta).T))
 
 
 def add_fourier_term(
@@ -131,11 +133,17 @@ def add_fourier_term(
         fourier_coefficients = pm.Normal(
             f'fourier_coefficients_{name}',
             mu=0,
-            sigma=5,
+            sigma=1,
             shape= (2 * n_fourier_components, dimension)
         )
         
-        seasonality_period = pm.Normal(f'season_parameter_{name}', mu = seasonality_period_baseline, sigma = 0.01)
+        relative_uncertainty_factor = 1000
+
+        seasonality_period = pm.Gamma(
+            f'season_parameter_{name}',
+            alpha = relative_uncertainty_factor*seasonality_period_baseline,
+            beta = relative_uncertainty_factor
+            )
         
         fourier_features = create_fourier_features(
             x=x,
@@ -143,7 +151,7 @@ def add_fourier_term(
             seasonality_period=seasonality_period
         )
             
-    return pm.math.sum(fourier_features * fourier_coefficients[None,:,:], axis=1)
+    return pm.Deterministic(f'{name}_fourier',pm.math.sum(fourier_features * fourier_coefficients[None,:,:], axis=1))
 
 
 def pymc_prophet(
@@ -154,19 +162,19 @@ def pymc_prophet(
         n_fourier_components: int = 10
         ):
     
-    prior_alpha = 1
-    prior_beta = 1
+    prior_alpha = 2
+    prior_beta = 3
     
     with pm.Model() as model:
         n_time_series = y_train.shape[1]
-        k_est = (y_train.values[-1][0]-y_train.values[0][0])/(x_train[-1]-x_train[0])
-        x = pm.Data('x', x_train, dims= ['n_obs'])
+        k_est = (y_train.values[-1]-y_train.values[0])/(x_train[-1]-x_train[0])
+        x = pm.Data('x', x_train, dims= 'n_obs')
         y = pm.Data('y', y_train, dims= ['n_obs_target', 'n_time_series'])
         
         linear_term = add_linear_term(
                 model = model,
                 x = x,
-                name = 'hest',
+                name = 'linear',
                 k_est = k_est,
                 n_time_series = n_time_series,
                 n_changepoints = n_changepoints,
@@ -175,30 +183,30 @@ def pymc_prophet(
                 )
         
         
-        seasonality_1 = add_fourier_term(
+        seasonality_individual = add_fourier_term(
                 model = model,
                 x = x,
                 n_fourier_components = n_fourier_components,
-                name = 'ko',
+                name = 'seasonality_individual',
+                dimension = n_time_series,
+                seasonality_period_baseline = seasonality_period_baseline,
+                prior_alpha = prior_alpha,
+                prior_beta =prior_beta
+                )
+        
+        seasonality_shared = add_fourier_term(
+                model = model,
+                x = x,
+                n_fourier_components = n_fourier_components,
+                name = 'seasonality_shared',
                 dimension = 1,
                 seasonality_period_baseline = seasonality_period_baseline,
                 prior_alpha = prior_alpha,
                 prior_beta =prior_beta
                 )
         
-        seasonality_2 = add_fourier_term(
-                model = model,
-                x = x,
-                n_fourier_components = n_fourier_components,
-                name = 'ko2',
-                dimension = 1,
-                seasonality_period_baseline = seasonality_period_baseline,
-                prior_alpha = prior_alpha,
-                prior_beta =prior_beta
-                )
-
-        prediction = linear_term[:,0]*(1+seasonality_2[:,0]) + seasonality_1[:,0]
-        
+        sign_indicator = pm.Bernoulli('sign_indicator', p=0.5, shape = n_time_series)
+        prediction = linear_term*(1+seasonality_individual) + ((2 * sign_indicator - 1))*seasonality_shared
         
         precision_obs = pm.Gamma(
             'precision_obs',
@@ -206,62 +214,40 @@ def pymc_prophet(
             beta = prior_beta,
             dims = 'n_time_series'
             )
-
+        
+        #print(prediction[:,0,None].shape.eval())
+        
         pm.Normal(
             'obs',
-            mu = prediction[:,None],
+            mu = prediction,
             sigma = 1/np.sqrt(precision_obs),
             observed = y,
             dims = ['n_obs', 'n_time_series']
         )
     return model
 
+
+
+
 #%%
 
 
-"""
-TO THIS POINT:
-    I have managed to stabalize the method of the 
-    multivariate version in a univariate scenario.
-    
-    Next, I need to generalize this to multiple
-    dimensions while keeping the stability. 
-    
-    I need to:
-        1) alter the dimension of the seasonalities
-        2) manage the dimensionality of the predicition
-           variable.
-    
-    + The variability around the period appears to 
-    have been key in previous instability. This also
-    explains why timeseers is stable and my previous 
-    version was not.
-    
-
-"""
-
-
-n_fourier_components_shared = 5
-seasonality_period_baseline_shared = max(significant_periods)
-
-n_fourier_components_individual = 5
-seasonality_period_baseline_individual = max(significant_periods)
-
-n_changepoints = 10
+n_fourier_components = 10
+n_changepoints = 30
 
 print("n_obs: ", x_train.shape[0])
 print("n_time_series: ",y_train.shape[1])
 print("n_changepoints: ", n_changepoints)
 
 
-target = y_train[['Passengers']]
+target = y_train[['Passengers','Mock_Passengers']]
 
 
 model =  pymc_prophet(
         x_train = x_train,
         y_train = target,
         seasonality_period_baseline = min(significant_periods),
-        n_fourier_components = 10,
+        n_fourier_components = n_fourier_components,
         n_changepoints = n_changepoints
         )
 
@@ -269,26 +255,20 @@ model =  pymc_prophet(
 #%%
 # Training
 
-
 with model:
     steps = [pm.NUTS(), pm.HamiltonianMC(), pm.Metropolis()]
     trace = pm.sample(
         tune = 500,
-        draws = 2000, 
+        draws = 5000, 
         chains = 4,
         cores = 1,
-        step = steps[0]
+        step = steps[2]
         #target_accept = 0.9
         )
 
 #%%
 
-
-
-pm.plot_trace(
-    trace,
-    )
-
+pm.plot_trace(trace)
 
 
 #%%
@@ -306,7 +286,6 @@ preds_out_of_sample = posterior_predictive.predictions_constant_data.sortby('x')
 model_preds = posterior_predictive.predictions.sortby(preds_out_of_sample)
 
 hdi_values = az.hdi(model_preds)["obs"].transpose("hdi", ...)
-
 
 
 for i in range(target.shape[1]):
@@ -329,6 +308,18 @@ for i in range(target.shape[1]):
     plt.plot(x_test,y_test[y_test.columns[i]], color = 'green')
 
 
+# %% Plot trends and fourier components
 
 
+plt.figure()
+plt.plot(x_train,trace.posterior['linear_trend'].mean(('chain','draw')).values)
+
+plt.figure()
+plt.plot(x_train,trace.posterior['seasonality_individual_fourier'].mean(('chain','draw')).values)
+
+plt.figure()
+plt.plot(x_train,trace.posterior['seasonality_shared_fourier'].mean(('chain','draw')).values)
+
+plt.figure()
+plt.plot(x_train, trace.posterior['linear_trend'].mean(('chain','draw')).values*(1+trace.posterior['seasonality_individual_fourier'].mean(('chain','draw')).values))
 
