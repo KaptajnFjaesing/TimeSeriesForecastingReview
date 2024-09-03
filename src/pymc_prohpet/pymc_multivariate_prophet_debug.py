@@ -181,8 +181,8 @@ def pymc_prophet(
         n_fourier_components: int = 10
         ):
     
-    prior_alpha = 2
-    prior_beta = 3
+    prior_alpha = 1
+    prior_beta = 1
     
     with pm.Model() as model:
         n_time_series = y_train.shape[1]
@@ -201,6 +201,7 @@ def pymc_prophet(
                 prior_beta = prior_beta
                 )
         
+
         seasonality_individual1 = add_fourier_term(
                 model = model,
                 x = x,
@@ -209,9 +210,9 @@ def pymc_prophet(
                 dimension = n_time_series,
                 seasonality_period_baseline = seasonality_period_baseline,
                 prior_alpha = prior_alpha,
-                prior_beta =prior_beta
+                prior_beta = prior_beta
                 )
-        
+
         seasonality_shared = add_fourier_term(
                 model = model,
                 x = x,
@@ -220,12 +221,17 @@ def pymc_prophet(
                 dimension = 1,
                 seasonality_period_baseline = seasonality_period_baseline,
                 prior_alpha = prior_alpha,
-                prior_beta =prior_beta
+                prior_beta = prior_beta
                 )
         
         sign_indicator = pm.Bernoulli('sign_indicator', p=0.5, shape = n_time_series)
-        prediction = (linear_term1+1)*(1+3*seasonality_individual1)-1 +((2 * sign_indicator - 1))*seasonality_shared
+        prediction = pm.math.sum([
+            linear_term1,
+            linear_term1*seasonality_individual1,
+            seasonality_shared*((2 * sign_indicator - 1))
+            ], axis = 0)
         
+        print("Prediction shape: ",prediction.shape.eval())
         precision_obs = pm.Gamma(
             'precision_obs',
             alpha = prior_alpha,
@@ -245,11 +251,12 @@ def pymc_prophet(
 
 
 
+
 #%%
 
 
 n_fourier_components = 5
-n_changepoints = 20
+n_changepoints = 10
 
 print("n_obs: ", x_train.shape[0])
 print("n_time_series: ",y_train.shape[1])
@@ -274,7 +281,7 @@ model =  pymc_prophet(
 with model:
     steps = [pm.NUTS(), pm.HamiltonianMC(), pm.Metropolis()]
     trace = pm.sample(
-        tune = 100,
+        tune = 200,
         draws = 500, 
         chains = 1,
         cores = 1,
@@ -332,6 +339,8 @@ print('k values: ', trace.posterior['linear1_k'].mean(('chain','draw')).values)
 
 plt.figure()
 plt.plot(x_train,trace.posterior['linear1_trend'].mean(('chain','draw')).values, label = 'linear_trend')
+plt.plot(x_train,trace.posterior['linear2_trend'].mean(('chain','draw')).values, label = 'linear_trend')
+
 plt.legend()
 
 plt.figure()
@@ -349,5 +358,5 @@ plt.legend()
 
 #%%
 plt.figure()
-plt.plot(x_train, (trace.posterior['linear_trend'].mean(('chain','draw')).values+1)*(0+trace.posterior['seasonality_individual_fourier'].mean(('chain','draw')).values)-1, label = 'trend and individual_seasonality')
+plt.plot(x_train, (trace.posterior['linear1_trend'].mean(('chain','draw')).values+1)*(1+3*trace.posterior['seasonality_individual1_fourier'].mean(('chain','draw')).values)-1, label = 'trend and individual_seasonality')
 plt.legend()
