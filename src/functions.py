@@ -1,4 +1,5 @@
 import pandas as pd
+import datetime
 
 def load_passengers_data() -> pd.DataFrame:
     return pd.read_csv('./data/passengers.csv', parse_dates=['Date'])
@@ -16,26 +17,56 @@ def load_m5_data() -> tuple[pd.DataFrame]:
         )
 
 
-def load_m5_sales_data() -> pd.DataFrame:
-
+def load_m5_weekly_store_category_sales_data():
+    
     (sell_prices_df, train_sales_df, calendar_df, submission_file) = load_m5_data()
-
-
+    
+    threshold_date = datetime.datetime(2011, 1, 1)
+    
     d_cols = [c for c in train_sales_df.columns if 'd_' in c]
-
+    
+    train_sales_df['store_cat'] = train_sales_df['store_id'].astype(str) + '_' + train_sales_df['cat_id'].astype(str)
     # Group by 'state_id' and sum the sales across the specified columns in `d_cols`
-    sales_sum_df = train_sales_df.groupby(['state_id'])[d_cols].mean().T
-
-
+    sales_sum_df = train_sales_df.groupby(['store_cat'])[d_cols].sum().T
+    
     # Merge the summed sales data with the calendar DataFrame on the 'd' column and set the index to 'date'
-    sales_states_df = sales_sum_df.merge(calendar_df.set_index('d')['date'], 
+    store_category_sales = sales_sum_df.merge(calendar_df.set_index('d')['date'], 
                                    left_index=True, right_index=True, 
                                    validate="1:1").set_index('date')
     # Ensure that the index of your DataFrame is in datetime format
-    sales_states_df.index = pd.to_datetime(sales_states_df.index)
+    store_category_sales.index = pd.to_datetime(store_category_sales.index)
+    weekly_store_category_sales = store_category_sales[store_category_sales.index > threshold_date].resample('W').sum()
+    
+    food_columns = [x for x in weekly_store_category_sales.columns if 'FOOD' in x]
+    household_columns = [x for x in weekly_store_category_sales.columns if 'HOUSEHOLD' in x]
+    hobbies_columns = [x for x in weekly_store_category_sales.columns if 'HOBBIES' in x]
+    
+    # The first datapoint is not included, because it may be a part of a week only
+    weekly_store_category_food_sales = weekly_store_category_sales[food_columns].iloc[1:]
+    weekly_store_category_household_sales = weekly_store_category_sales[household_columns].iloc[1:]
+    weekly_store_category_hobbies_sales = weekly_store_category_sales[hobbies_columns].iloc[1:]
+    
+    return (
+        weekly_store_category_food_sales,
+        weekly_store_category_household_sales,
+        weekly_store_category_hobbies_sales
+        )
 
-    return sales_states_df
 
+def normalized_weekly_store_category_household_sales() -> pd.DataFrame:
+    
+    _,weekly_store_category_household_sales,_ = load_m5_weekly_store_category_sales_data()
+    weekly_store_category_household_sales = weekly_store_category_household_sales[weekly_store_category_household_sales.index < datetime.datetime(2016, 1, 1)]
+    df_temp = weekly_store_category_household_sales.copy()
+    df_temp['year'] = df_temp.index.isocalendar().year
+    yearly_means = df_temp.groupby('year').mean()
+    df_temp = df_temp.reset_index().merge(yearly_means,  on='year', how = 'left', suffixes=('', '_yearly_mean')).set_index('date')
+
+    for item in weekly_store_category_household_sales.columns:
+        df_temp[item + '_normalized'] = df_temp[item] / df_temp[item + '_yearly_mean']
+
+    return df_temp[[x for x in df_temp.columns if '_normalized' in x]]
+    
 def feature_engineering(
         df: pd.DataFrame(),
         column_list: list,
