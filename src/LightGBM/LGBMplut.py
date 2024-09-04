@@ -41,6 +41,7 @@ df_features['time_sine']=np.sin(2*np.pi*df_features.index/12) # Create a sine ti
 
 y_train = df_passengers.loc[df_features.index]['Passengers'] # Training target data
 
+print(y_train)
 #%%
 import lightgbm as lgb
 import numpy as np

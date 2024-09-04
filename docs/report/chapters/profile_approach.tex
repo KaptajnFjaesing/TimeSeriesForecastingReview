@@ -1,3 +1,5 @@
+\chapter{Profile Approach}
+
 \section{Method}
 \label{sec:method}
 Consider the problem of having a time series that yield the demand of some product with one entry per week and generating a representative forecast for this. The problem can be framed as a game between Nature and a Robot, where each make a decision. Nature's decision ($s_i\in \Omega_S$) is to picks the true demand and the Robot's decision ($U_i(D)\in \Omega_U$) is guided to minimize a cost function defined viz 
@@ -159,13 +161,13 @@ and
 \end{equation}
 This means
 \begin{equation}
-		 \begin{split}
-		 	U^*_j(D) &= \int d\theta\int ds_1ds_2\dots ds_n s_j\text{Poi}(s_j|\lambda(\theta,j))p(\theta|D,I)\\
-		 	& = \int d\theta \int ds_js_j \text{Poi}(s_j|\lambda(\theta,j))p(\theta|D,I)\\
-		 	& = \int d\theta \lambda(\theta,j) p(\theta|D,I)\\
-		 	& = \mathbb{E}[\lambda|D,I]
-		 \end{split}
-		\label{eq:decision_rule3}
+	\begin{split}
+		U^*_j(D) &= \int d\theta\int ds_1ds_2\dots ds_n s_j\text{Poi}(s_j|\lambda(\theta,j))p(\theta|D,I)\\
+		& = \int d\theta \int ds_js_j \text{Poi}(s_j|\lambda(\theta,j))p(\theta|D,I)\\
+		& = \int d\theta \lambda(\theta,j) p(\theta|D,I)\\
+		& = \mathbb{E}[\lambda|D,I]
+	\end{split}
+	\label{eq:decision_rule3}
 \end{equation}
 where $\lambda$ is some model, in this case a Fourier series
 \begin{equation}

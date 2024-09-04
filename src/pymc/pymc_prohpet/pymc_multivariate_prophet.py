@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Sep  4 13:32:26 2024
+
+@author: petersen.jonas
+"""
+
 from src.functions import load_passengers_data
 import pymc as pm
 import numpy as np
@@ -19,34 +26,16 @@ x_train_unnormalized = df_passengers.index[:training_split].values
 y_train_unnormalized = df_passengers[['Passengers','Mock_Passengers']].iloc[:training_split]
 
 
-
-"""
-
-x_train_mean = x_train_unnormalized.mean()
-x_train_std = x_train_unnormalized.std()*2
-
-y_train_mean = y_train_unnormalized.mean().values
-y_train_std = y_train_unnormalized.std().values*2
-
-x_train = (x_train_unnormalized-x_train_mean)/x_train_std
-y_train = (y_train_unnormalized-y_train_mean)/y_train_std
-
-x_test = (df_passengers.index[training_split:].values-x_train_mean)/x_train_std
-y_test = (df_passengers[['Passengers','Mock_Passengers']].iloc[training_split:]-y_train_mean)/y_train_std
-
-x_total = (df_passengers.index.values-x_train_mean)/x_train_std
-y_total = (df_passengers[['Passengers','Mock_Passengers']]-y_train_mean)/y_train_std
-
-"""
+scale = 10
 
 x_train = (x_train_unnormalized-x_train_unnormalized.min())/(x_train_unnormalized.max()-x_train_unnormalized.min())
-y_train = (y_train_unnormalized-y_train_unnormalized.min())/(y_train_unnormalized.max()-y_train_unnormalized.min())
+y_train = scale*(y_train_unnormalized-y_train_unnormalized.min())/(y_train_unnormalized.max()-y_train_unnormalized.min())
 
 x_test = (df_passengers.index[training_split:].values-x_train_unnormalized.min())/(x_train_unnormalized.max()-x_train_unnormalized.min())
-y_test = (df_passengers[['Passengers','Mock_Passengers']].iloc[training_split:]-y_train_unnormalized.min())/(y_train_unnormalized.max()-y_train_unnormalized.min())
+y_test = scale*(df_passengers[['Passengers','Mock_Passengers']].iloc[training_split:]-y_train_unnormalized.min())/(y_train_unnormalized.max()-y_train_unnormalized.min())
 
 x_total = (df_passengers.index.values-x_train_unnormalized.min())/(x_train_unnormalized.max()-x_train_unnormalized.min())
-y_total = (df_passengers[['Passengers','Mock_Passengers']]-y_train_unnormalized.min())/(y_train_unnormalized.max()-y_train_unnormalized.min())
+y_total = scale*(df_passengers[['Passengers','Mock_Passengers']]-y_train_unnormalized.min())/(y_train_unnormalized.max()-y_train_unnormalized.min())
 
 
 
@@ -103,6 +92,7 @@ def add_linear_term(
         x,
         name,
         k_est: float,
+        m_est:float,
         n_time_series: int,
         n_changepoints: int,
         prior_alpha: float,
@@ -132,7 +122,7 @@ def add_linear_term(
             alpha = prior_alpha,
             beta = prior_beta
             )
-        m = pm.Normal(f'{name}_m', mu=0, sigma = 1/np.sqrt(precision_m), shape=n_time_series)
+        m = pm.Normal(f'{name}_m', mu=m_est, sigma = 1/np.sqrt(precision_m), shape=n_time_series)
         
         
     return pm.Deterministic(f'{name}_trend',(k + pm.math.dot(A, delta.T))*x[:, None] + m + pm.math.dot(A, (-s * delta).T))
@@ -187,6 +177,8 @@ def pymc_prophet(
     with pm.Model() as model:
         n_time_series = y_train.shape[1]
         k_est = (y_train.values[-1]-y_train.values[0])/(x_train[-1]-x_train[0])
+        m_est = k_est = y_train.values[0]
+        
         x = pm.Data('x', x_train, dims= 'n_obs')
         y = pm.Data('y', y_train, dims= ['n_obs_target', 'n_time_series'])
         
@@ -195,6 +187,19 @@ def pymc_prophet(
                 x = x,
                 name = 'linear1',
                 k_est = k_est,
+                m_est = m_est,
+                n_time_series = n_time_series,
+                n_changepoints = n_changepoints,
+                prior_alpha = prior_alpha,
+                prior_beta = prior_beta
+                )
+        
+        linear_term2 = add_linear_term(
+                model = model,
+                x = x,
+                name = 'linear2',
+                k_est = k_est,
+                m_est = m_est,
                 n_time_series = n_time_series,
                 n_changepoints = n_changepoints,
                 prior_alpha = prior_alpha,
@@ -207,6 +212,17 @@ def pymc_prophet(
                 x = x,
                 n_fourier_components = n_fourier_components,
                 name = 'seasonality_individual1',
+                dimension = n_time_series,
+                seasonality_period_baseline = seasonality_period_baseline,
+                prior_alpha = prior_alpha,
+                prior_beta = prior_beta
+                )
+        
+        seasonality_individual2 = add_fourier_term(
+                model = model,
+                x = x,
+                n_fourier_components = n_fourier_components,
+                name = 'seasonality_individual2',
                 dimension = n_time_series,
                 seasonality_period_baseline = seasonality_period_baseline,
                 prior_alpha = prior_alpha,
@@ -225,9 +241,12 @@ def pymc_prophet(
                 )
         
         sign_indicator = pm.Bernoulli('sign_indicator', p=0.5, shape = n_time_series)
+        
+        
         prediction = pm.math.sum([
             linear_term1,
-            linear_term1*seasonality_individual1,
+            seasonality_individual1,
+            linear_term2*seasonality_individual2,
             seasonality_shared*((2 * sign_indicator - 1))
             ], axis = 0)
         
@@ -255,7 +274,7 @@ def pymc_prophet(
 #%%
 
 
-n_fourier_components = 5
+n_fourier_components = 10
 n_changepoints = 10
 
 print("n_obs: ", x_train.shape[0])
@@ -281,9 +300,9 @@ model =  pymc_prophet(
 with model:
     steps = [pm.NUTS(), pm.HamiltonianMC(), pm.Metropolis()]
     trace = pm.sample(
-        tune = 200,
-        draws = 500, 
-        chains = 1,
+        tune = 500,
+        draws = 2000, 
+        chains = 4,
         cores = 1,
         step = steps[0]
         #target_accept = 0.9
@@ -350,10 +369,6 @@ plt.legend()
 plt.figure()
 plt.plot(x_train,trace.posterior['seasonality_shared_fourier'].mean(('chain','draw')).values, label = 'seasonality_shared')
 plt.legend()
-
-#%%
-
-
 
 
 #%%
