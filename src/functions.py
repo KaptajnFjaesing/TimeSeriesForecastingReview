@@ -41,10 +41,9 @@ def load_m5_weekly_store_category_sales_data():
     household_columns = [x for x in weekly_store_category_sales.columns if 'HOUSEHOLD' in x]
     hobbies_columns = [x for x in weekly_store_category_sales.columns if 'HOBBIES' in x]
     
-    # The first datapoint is not included, because it may be a part of a week only
-    weekly_store_category_food_sales = weekly_store_category_sales[food_columns].iloc[1:]
-    weekly_store_category_household_sales = weekly_store_category_sales[household_columns].iloc[1:]
-    weekly_store_category_hobbies_sales = weekly_store_category_sales[hobbies_columns].iloc[1:]
+    weekly_store_category_food_sales = weekly_store_category_sales[food_columns]
+    weekly_store_category_household_sales = weekly_store_category_sales[household_columns]
+    weekly_store_category_hobbies_sales = weekly_store_category_sales[hobbies_columns]
     
     return (
         weekly_store_category_food_sales,
@@ -56,16 +55,20 @@ def load_m5_weekly_store_category_sales_data():
 def normalized_weekly_store_category_household_sales() -> pd.DataFrame:
     
     _,weekly_store_category_household_sales,_ = load_m5_weekly_store_category_sales_data()
-    weekly_store_category_household_sales = weekly_store_category_household_sales[weekly_store_category_household_sales.index < datetime.datetime(2016, 1, 1)]
-    df_temp = weekly_store_category_household_sales.copy()
-    df_temp['year'] = df_temp.index.isocalendar().year
-    yearly_means = df_temp.groupby('year').mean()
-    df_temp = df_temp.reset_index().merge(yearly_means,  on='year', how = 'left', suffixes=('', '_yearly_mean')).set_index('date')
+    
+    df_temp = weekly_store_category_household_sales.copy().reset_index()
+    df_temp['week'] = df_temp['date'].dt.strftime('%U').astype(int)
+    df_temp['year'] = df_temp['date'].dt.strftime('%Y').astype(int)
 
-    for item in weekly_store_category_household_sales.columns:
-        df_temp[item + '_normalized'] = df_temp[item] / df_temp[item + '_yearly_mean']
+    condition = (df_temp['year'] > df_temp['year'].min()) & (df_temp['year'] < df_temp['year'].max())
+    df_temp_filtered = df_temp[condition]
+    cols1 = [x for x in df_temp.columns if ('HOUSEHOLD' in x or 'year' in x) ]
+    yearly_means = df_temp_filtered[cols1].groupby('year').mean()
+    df_temp_filtered = df_temp_filtered.merge(yearly_means,  on='year', how = 'left', suffixes=('', '_yearly_mean'))
+    for item in [x for x in df_temp.columns if 'HOUSEHOLD' in x ]:
+        df_temp_filtered[item + '_normalized'] = df_temp_filtered[item] / df_temp_filtered[item + '_yearly_mean']
 
-    return df_temp[[x for x in df_temp.columns if '_normalized' in x]]
+    return df_temp_filtered[[x for x in df_temp_filtered.columns if (('HOUSEHOLD' in x or 'week' in x or 'year' in x or 'date' in x) and ('yearly' not in x))]]
     
 def feature_engineering(
         df: pd.DataFrame(),
