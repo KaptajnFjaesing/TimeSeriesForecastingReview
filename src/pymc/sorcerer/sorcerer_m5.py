@@ -14,7 +14,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import pytensor as pt
-
+import datetime
+import arviz as az
 
 df = normalized_weekly_store_category_household_sales()
 _,weekly_store_category_household_sales,_ = load_m5_weekly_store_category_sales_data()
@@ -67,6 +68,15 @@ for i in range(y_test.shape[1]):
 for j in range(i + 1, len(axs)):
     fig.delaxes(axs[j])  # Remove unused axes to clean up the figure
 # %%
+
+
+
+# Function to generate a timestamped filename
+def get_timestamped_filename(base_filename, extension):
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    return f"{base_filename}_{timestamp}.{extension}"
+
+
 def determine_significant_periods(
         series: np.array,
         x_train: np.array,
@@ -101,7 +111,6 @@ def create_fourier_features(
         n_fourier_components: int,
         seasonality_period: np.ndarray
         ):
-
     frequency_component = pt.tensor.as_tensor_variable(2 * np.pi * (np.arange(n_fourier_components)+1) * x[:, None]) # (n_obs, n_fourier_components)
     t = frequency_component[:, :, None] / seasonality_period # (n_obs, n_fourier_components, n_time_series)
     fourier_features = pm.math.concatenate((pt.tensor.cos(t), pt.tensor.sin(t)), axis=1)  # (n_obs, 2*n_fourier_components, n_time_series)
@@ -114,37 +123,14 @@ def add_linear_term(
         k_est: float,
         m_est:float,
         n_time_series: int,
-        n_changepoints: int,
-        prior_alpha: float,
-        prior_beta: float
+        n_changepoints: int
         ):
     with model:
         s = pt.tensor.linspace(0, pm.math.max(x), n_changepoints+2)[1:-1]
         A = (x[:, None] > s)*1.
-    
-        # Growth model parameters
-        precision_k = pm.Gamma(
-            f'precision_{name}_k',
-            alpha = prior_alpha,
-            beta = prior_beta
-            )
-        k = pm.Normal(
-            f'{name}_k',
-            mu = k_est,
-            sigma = 1/np.sqrt(precision_k),
-            shape = n_time_series
-            )  # Shape matches time series
+        k = pm.Normal(f'{name}_k', mu = k_est,sigma = 1,shape = n_time_series)  # Shape matches time series
         delta = pm.Laplace(f'{name}_delta', mu=0, b = 0.4, shape = (n_time_series, n_changepoints)) # The parameter delta represents the magnitude and direction of the change in growth rate at each changepoint in a piecewise linear model.
-        
-        # Offset model parameters
-        precision_m = pm.Gamma(
-            f'precision_{name}_m',
-            alpha = prior_alpha,
-            beta = prior_beta
-            )
-        m = pm.Normal(f'{name}_m', mu=m_est, sigma = 1/np.sqrt(precision_m), shape=n_time_series)
-        
-        
+        m = pm.Normal(f'{name}_m', mu=m_est, sigma = 1, shape=n_time_series)
     return pm.Deterministic(f'{name}_trend',(k + pm.math.dot(A, delta.T))*x[:, None] + m + pm.math.dot(A, (-s * delta).T))
 
 
@@ -157,27 +143,10 @@ def add_fourier_term(
         seasonality_period_baseline: float
         ):
     with model:
-        fourier_coefficients = pm.Normal(
-            f'fourier_coefficients_{name}',
-            mu = 0,
-            sigma = 1,
-            shape= (2 * n_fourier_components, dimension)
-        )
-        
+        fourier_coefficients = pm.Normal(f'fourier_coefficients_{name}',mu = 0,sigma = 1,shape= (2 * n_fourier_components, dimension))
         relative_uncertainty_factor = 1000
-
-        seasonality_period = pm.Gamma(
-            f'season_parameter_{name}',
-            alpha = relative_uncertainty_factor*seasonality_period_baseline,
-            beta = relative_uncertainty_factor
-            )
-        
-        fourier_features = create_fourier_features(
-            x=x,
-            n_fourier_components=n_fourier_components,
-            seasonality_period=seasonality_period
-        )
-            
+        seasonality_period = pm.Gamma(f'season_parameter_{name}',alpha = relative_uncertainty_factor*seasonality_period_baseline,beta = relative_uncertainty_factor)
+        fourier_features = create_fourier_features(x=x,n_fourier_components=n_fourier_components,seasonality_period=seasonality_period)    
     return pm.Deterministic(f'{name}_fourier',pm.math.sum(fourier_features * fourier_coefficients[None,:,:], axis=1))
 
 
@@ -189,19 +158,11 @@ def sorcerer(
         n_changepoints: int = 10,
         n_fourier_components: int = 10
         ):
-    
-    prior_alpha = 2
-    prior_beta = 3
-    
-    
     n_time_series = y_train.shape[1]
-    n_obs = y_train.shape[0]
     k_est = (y_train.values[-1]-y_train.values[0])/(x_train[-1]-x_train[0])
     m_est = k_est = y_train.values[0]
     
     with pm.Model() as model:
-        
-        
         x = pm.Data('x', x_train, dims= 'n_obs')
         y = pm.Data('y', y_train, dims= ['n_obs_target', 'n_time_series'])
         
@@ -212,9 +173,7 @@ def sorcerer(
                 k_est = k_est,
                 m_est = m_est,
                 n_time_series = n_time_series,
-                n_changepoints = n_changepoints,
-                prior_alpha = prior_alpha,
-                prior_beta = prior_beta
+                n_changepoints = n_changepoints
                 )
 
         seasonality_individual1 = add_fourier_term(
@@ -235,76 +194,21 @@ def sorcerer(
                 seasonality_period_baseline = seasonality_period_baseline
                 )
         
-        all_models = pm.math.concatenate([
-            pm.math.zeros((n_obs, 1)),
-            seasonality_shared]
-            , axis=1)  # Shape: (n_groups+1, n_obs)
+        all_models = pm.math.concatenate([x[:,None]*0,seasonality_shared],axis=1)  # Shape: (n_groups+1, n_obs)
         model_probs = pm.Dirichlet('model_probs', a=np.ones(n_groups), shape=(n_time_series, n_groups))
         chosen_model_index = pm.Categorical('chosen_model_index', p=model_probs, shape=n_time_series)
-        selected_models = pm.Deterministic(
-            'selected_models', 
-            all_models[:, chosen_model_index]
-        )
+        shared_seasonality_models = all_models[:, chosen_model_index]
         
         prediction = (
             linear_term1+
             seasonality_individual1+
-            selected_models
+            shared_seasonality_models
             )
 
-        precision_obs = pm.Gamma(
-            'precision_obs',
-            alpha = prior_alpha,
-            beta = prior_beta,
-            dims = 'n_time_series'
-            )
-        
-        pm.Normal(
-            'obs',
-            mu = prediction,
-            sigma = 1/np.sqrt(precision_obs),
-            observed = y,
-            dims = ['n_obs', 'n_time_series']
-        )
-
+        pm.Normal('obs', mu = prediction, sigma = 0.01, observed = y, dims = ['n_obs', 'n_time_series'])
     return model
 
 
-
-
-#%%
-"""
-TO THIS POINT:
-    I am trying to get the concatenation in 
-    all_models = pm.math.concatenate([pm.math.zeros((n_obs, 1)), normal_models], axis=1) 
-    to work.
-
-"""
-
-with pm.Model() as model:
-    n_groups = 4
-    n_obs = 52
-    n_time_series = 11
-    normal_models = pm.Normal(
-        'obs',
-        mu = 0,
-        sigma = 1,
-        shape = (n_obs,n_groups-1)
-    )
-    
-    zero_model = np.zeros(n_obs)  # Zero model with the same shape as the observations
-
-    all_models = pm.math.concatenate([pm.math.zeros((n_obs, 1)), normal_models], axis=1)  # Shape: (n_groups+1, n_obs)
-    
-    model_probs = pm.Dirichlet('model_probs', a=np.ones(n_groups), shape=(n_time_series, n_groups))
-    print(model_probs.shape.eval())
-    chosen_model_index = pm.Categorical('chosen_model_index', p=model_probs, shape=n_time_series)
-        
-    print(all_models[:,chosen_model_index].shape.eval())
-    selected_models = pm.Deterministic(
-        'selected_models', 
-        all_models[:, chosen_model_index]
-    )
 # %%
 (dominant_period, significant_periods) = determine_significant_periods(
         series = y_train.values[:,0],
@@ -312,9 +216,9 @@ with pm.Model() as model:
         threshold = 0.5
         )
 
-n_fourier_components = 10
+n_fourier_components = 5
 n_changepoints = 20
-
+n_groups = 3 # plus no group
 print("n_obs: ", x_train.shape[0])
 print("n_time_series: ",y_train.shape[1])
 print("n_changepoints: ", n_changepoints)
@@ -325,6 +229,7 @@ model =  sorcerer(
         x_train = x_train.values,
         y_train = y_train,
         seasonality_period_baseline = significant_periods[2],
+        n_groups = n_groups,
         n_fourier_components = n_fourier_components,
         n_changepoints = n_changepoints
         )
@@ -337,28 +242,46 @@ with model:
     steps = [pm.NUTS(), pm.HamiltonianMC(), pm.Metropolis()]
     trace = pm.sample(
         tune = 100,
-        draws = 200, 
+        draws = 500, 
         chains = 1,
         cores = 1,
         step = steps[0]
         )
 
+#%%
+
+# Function to generate a timestamped filename
+def get_timestamped_filename(base_filename, extension):
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M')
+    return f"{base_filename}_{timestamp}.{extension}"
+
+trace_filename = get_timestamped_filename("./data/pymc_traces/sorcerer", "nc")
 
 
+az.to_netcdf(trace, trace_filename)
+
+print(f"Trace saved as {trace_filename}")
+#%%
+
+
+
+az.plot_trace(trace)
 
 #%%
 
-for variable in list(trace.posterior.data_vars):
-    pm.plot_trace(trace,
-                  var_names = [variable])
+"""
+# Load the InferenceData object
+
+trace_filename = get_timestamped_filename("'./data/models", "nc")
+
+trace = az.from_netcdf(trace_filename)
 
 
-#%%
-
+"""
 
 import arviz as az
 
-X = x_test
+X = x_train
 
 with model:
     pm.set_data({'x':X})
@@ -368,6 +291,7 @@ preds_out_of_sample = posterior_predictive.predictions_constant_data.sortby('x')
 model_preds = posterior_predictive.predictions.sortby(preds_out_of_sample)
 
 hdi_values = az.hdi(model_preds)["obs"].transpose("hdi", ...)
+
 
 # Calculate the number of rows needed for 2 columns
 n_cols = 2  # We want 2 columns
@@ -402,20 +326,25 @@ for j in range(i + 1, len(axs)):
 
 
 # %% Plot trends and fourier components
+
+
 print('k values: ', trace.posterior['linear1_k'].mean(('chain','draw')).values)
+print('m values: ', trace.posterior['linear1_m'].mean(('chain','draw')).values)
+print('chosen_model_index: ', trace.posterior['chosen_model_index'].mean(('chain','draw')).values)
+
+
 
 plt.figure()
-plt.plot(x_train,trace.posterior['linear1_trend'].mean(('chain','draw')).values, label = 'linear_trend')
-
-plt.legend()
-
-plt.figure()
-plt.plot(x_train,trace.posterior['seasonality_individual1_fourier'].mean(('chain','draw')).values, label = 'seasonality_individual')
-plt.legend()
+plt.plot(x_train,trace.posterior['linear1_trend'].mean(('chain','draw')).values)
+plt.title('linear1_trend')
 
 plt.figure()
-plt.plot(x_train,trace.posterior['seasonality_shared_fourier'].mean(('chain','draw')).values, label = 'seasonality_shared')
-plt.legend()
+plt.plot(x_train,trace.posterior['seasonality_individual1_fourier'].mean(('chain','draw')).values)
+plt.title('seasonality_individual1_fourier')
+
+plt.figure()
+plt.plot(x_train,trace.posterior['seasonality_shared_fourier'].mean(('chain','draw')).values)
+plt.title('seasonality_shared_fourier')
 
 
 # %%
@@ -486,3 +415,50 @@ plt.plot(ko, label = "Future mean model")
 plt.legend()
 
 print(r_squared.mean().round(2),"+-",r_squared.std().round(2))
+
+
+
+
+#%% Debug
+
+"""
+TO THIS POINT:
+    Why does the trend not fit well for the training in case of J = 1 (top right plot in subplot)?
+    
+    + maybe I can penalize deviations from data more by adjusting the standard deviation of the targets?
+    + maybe I can adjust the intervals with which the linear segments are spaced?
+    + maybe I need to allow for larger changes in the trend? This would mean adjusting the Laplace prior.
+    + plot the prediction on top of the data and trend.
+    
+    ++ It looks like the trend is perfect, but the Fourier components are bad. It looks as if the period is off. Perhaps it would be good to adjust this?
+    ++ With x_train, the model fits perfectly to data. However, when I use test data, this all changes. There is something wrong. THIS POINT NEXT.
+    
+    
+"""
+
+
+J = 1
+
+
+
+print('k values: ', trace.posterior['linear1_k'].mean(('chain','draw')).values[J])
+print('m values: ', trace.posterior['linear1_m'].mean(('chain','draw')).values[J])
+print('chosen_model_index: ', trace.posterior['chosen_model_index'].mean(('chain','draw')).values[J])
+
+
+
+plt.figure()
+plt.plot(x_train,trace.posterior['linear1_trend'].mean(('chain','draw')).values[:,J], color = 'tab:green')
+plt.plot(x_total, y_total[y_total.columns[J]], color = 'tab:red',  label='Training Data')
+plt.plot(preds_out_of_sample, (model_preds["obs"].mean(("chain", "draw")).T)[J], color = 'tab:blue', label='Model')
+plt.plot(x_train,trace.posterior['linear1_trend'].mean(('chain','draw')).values[:,J]+trace.posterior['seasonality_individual1_fourier'].mean(('chain','draw')).values[:,J], color = 'tab:cyan')
+plt.title('linear1_trend')
+
+plt.figure()
+plt.plot(x_train,trace.posterior['seasonality_individual1_fourier'].mean(('chain','draw')).values[:,J])
+plt.title('seasonality_individual1_fourier')
+
+plt.figure()
+plt.plot(x_train,trace.posterior['seasonality_shared_fourier'].mean(('chain','draw')).values)
+plt.title('seasonality_shared_fourier')
+
