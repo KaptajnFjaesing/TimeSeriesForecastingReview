@@ -13,6 +13,7 @@ from src.functions import (
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
+import pytensor as pt
 
 
 df = normalized_weekly_store_category_household_sales()
@@ -37,76 +38,63 @@ y_train = (training_data[unnormalized_column_group]-training_data[unnormalized_c
 x_test = (test_data['date'].astype('int64')//10**9 - (training_data['date'].astype('int64')//10**9).min())/((training_data['date'].astype('int64')//10**9).max() - (training_data['date'].astype('int64')//10**9).min())
 y_test = (test_data[unnormalized_column_group]-training_data[unnormalized_column_group].min())/(training_data[unnormalized_column_group].max()-training_data[unnormalized_column_group].min())
 
+x_total = (df['date'].astype('int64')//10**9 - (training_data['date'].astype('int64')//10**9).min())/((training_data['date'].astype('int64')//10**9).max() - (training_data['date'].astype('int64')//10**9).min())
+y_total = (df[unnormalized_column_group]-training_data[unnormalized_column_group].min())/(training_data[unnormalized_column_group].max()-training_data[unnormalized_column_group].min())
 
 
 
+# Calculate the number of rows needed for 2 columns
+n_cols = 2  # We want 2 columns
+n_rows = int(np.ceil(y_test.shape[1] / n_cols))  # Number of rows needed
 
+# Create subplots with 2 columns and computed rows
+fig, axs = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(10, 5 * n_rows), constrained_layout=True)
 
+# Flatten the axs array to iterate over it easily
+axs = axs.flatten()
+
+# Loop through each column to plot
+for i in range(y_test.shape[1]):
+    ax = axs[i]  # Get the correct subplot
+    ax.plot(x_train, y_train[y_train.columns[i]], color = 'tab:red',  label='Training Data')
+    ax.plot(x_test, y_test[y_test.columns[i]], color = 'tab:blue', label='Test Data')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Values')
+    ax.grid(True)
+    ax.legend()
+
+# Hide any remaining empty subplots
+for j in range(i + 1, len(axs)):
+    fig.delaxes(axs[j])  # Remove unused axes to clean up the figure
 # %%
+def determine_significant_periods(
+        series: np.array,
+        x_train: np.array,
+        threshold: float
+        ) -> tuple:
+    # FFT of the time series
+    fft_result = np.fft.fft(series)
+    fft_magnitude = np.abs(fft_result)
+    fft_freqs = np.fft.fftfreq(len(series), x_train[1] - x_train[0])
+
+    # Get positive frequencies
+    positive_freqs = fft_freqs[fft_freqs > 0]
+    positive_magnitudes = fft_magnitude[fft_freqs > 0]
 
 
-# Generate mock time series
-np.random.seed(42)  # For reproducibility
-trend = -80 - 0.7 * np.arange(len(df_passengers))
-noise = 1*np.random.normal(0, 10, len(df_passengers))
-df_passengers['Mock_Passengers'] = (-df_passengers['Passengers']*(0.6-0.004*np.sqrt(np.arange(len(df_passengers)))) + trend + noise).astype(int)
+    # Find the dominant component
+    max_magnitude = np.max(positive_magnitudes)
+    max_index = np.argmax(positive_magnitudes)
+    dominant_frequency = positive_freqs[max_index]
+    dominant_period = 1 / dominant_frequency
 
 
-training_split = int(len(df_passengers)*0.7)
- 
-x_train_unnormalized = df_passengers.index[:training_split].values
-y_train_unnormalized = df_passengers[['Passengers','Mock_Passengers']].iloc[:training_split]
+    # Find components that are more than K fraction of the maximum
+    significant_indices = np.where(positive_magnitudes >= threshold * max_magnitude)[0]
+    significant_frequencies = positive_freqs[significant_indices]
+    significant_periods = 1 / significant_frequencies
+    return dominant_period, significant_periods
 
-
-scale = 10
-
-x_train = (x_train_unnormalized-x_train_unnormalized.min())/(x_train_unnormalized.max()-x_train_unnormalized.min())
-y_train = scale*(y_train_unnormalized-y_train_unnormalized.min())/(y_train_unnormalized.max()-y_train_unnormalized.min())
-
-x_test = (df_passengers.index[training_split:].values-x_train_unnormalized.min())/(x_train_unnormalized.max()-x_train_unnormalized.min())
-y_test = scale*(df_passengers[['Passengers','Mock_Passengers']].iloc[training_split:]-y_train_unnormalized.min())/(y_train_unnormalized.max()-y_train_unnormalized.min())
-
-x_total = (df_passengers.index.values-x_train_unnormalized.min())/(x_train_unnormalized.max()-x_train_unnormalized.min())
-y_total = scale*(df_passengers[['Passengers','Mock_Passengers']]-y_train_unnormalized.min())/(y_train_unnormalized.max()-y_train_unnormalized.min())
-
-
-
-
-#%%
-
-plt.figure()
-plt.plot(x_train, y_train)
-plt.plot(x_test, y_test)
-
-series = y_train.values[:,0]
-
-# FFT of the time series
-fft_result = np.fft.fft(series)
-fft_magnitude = np.abs(fft_result)
-fft_freqs = np.fft.fftfreq(len(series), x_train[1] - x_train[0])
-
-# Get positive frequencies
-positive_freqs = fft_freqs[fft_freqs > 0]
-positive_magnitudes = fft_magnitude[fft_freqs > 0]
-
-
-# Find the dominant component
-max_magnitude = np.max(positive_magnitudes)
-max_index = np.argmax(positive_magnitudes)
-dominant_frequency = positive_freqs[max_index]
-dominant_period = 1 / dominant_frequency
-
-# Define the fraction K
-K = 0.5  # Example: 50% of the maximum magnitude
-
-# Find components that are more than K fraction of the maximum
-significant_indices = np.where(positive_magnitudes >= K * max_magnitude)[0]
-significant_frequencies = positive_freqs[significant_indices]
-significant_periods = 1 / significant_frequencies
-
-
-
-# %%
 
 def create_fourier_features(
         x: np.ndarray,
@@ -166,15 +154,13 @@ def add_fourier_term(
         n_fourier_components: int,
         name: str,
         dimension: int,
-        seasonality_period_baseline: float,
-        prior_alpha: float,
-        prior_beta: float
+        seasonality_period_baseline: float
         ):
     with model:
         fourier_coefficients = pm.Normal(
             f'fourier_coefficients_{name}',
             mu = 0,
-            sigma = 10,
+            sigma = 1,
             shape= (2 * n_fourier_components, dimension)
         )
         
@@ -195,21 +181,26 @@ def add_fourier_term(
     return pm.Deterministic(f'{name}_fourier',pm.math.sum(fourier_features * fourier_coefficients[None,:,:], axis=1))
 
 
-def pymc_prophet(
+def sorcerer(
         x_train: np.array,
         y_train: np.array,
         seasonality_period_baseline: float,
+        n_groups: int = 3,
         n_changepoints: int = 10,
         n_fourier_components: int = 10
         ):
     
-    prior_alpha = 1
-    prior_beta = 1
+    prior_alpha = 2
+    prior_beta = 3
+    
+    
+    n_time_series = y_train.shape[1]
+    n_obs = y_train.shape[0]
+    k_est = (y_train.values[-1]-y_train.values[0])/(x_train[-1]-x_train[0])
+    m_est = k_est = y_train.values[0]
     
     with pm.Model() as model:
-        n_time_series = y_train.shape[1]
-        k_est = (y_train.values[-1]-y_train.values[0])/(x_train[-1]-x_train[0])
-        m_est = k_est = y_train.values[0]
+        
         
         x = pm.Data('x', x_train, dims= 'n_obs')
         y = pm.Data('y', y_train, dims= ['n_obs_target', 'n_time_series'])
@@ -225,19 +216,6 @@ def pymc_prophet(
                 prior_alpha = prior_alpha,
                 prior_beta = prior_beta
                 )
-        
-        linear_term2 = add_linear_term(
-                model = model,
-                x = x,
-                name = 'linear2',
-                k_est = k_est,
-                m_est = m_est,
-                n_time_series = n_time_series,
-                n_changepoints = n_changepoints,
-                prior_alpha = prior_alpha,
-                prior_beta = prior_beta
-                )
-        
 
         seasonality_individual1 = add_fourier_term(
                 model = model,
@@ -245,20 +223,7 @@ def pymc_prophet(
                 n_fourier_components = n_fourier_components,
                 name = 'seasonality_individual1',
                 dimension = n_time_series,
-                seasonality_period_baseline = seasonality_period_baseline,
-                prior_alpha = prior_alpha,
-                prior_beta = prior_beta
-                )
-        
-        seasonality_individual2 = add_fourier_term(
-                model = model,
-                x = x,
-                n_fourier_components = n_fourier_components,
-                name = 'seasonality_individual2',
-                dimension = n_time_series,
-                seasonality_period_baseline = seasonality_period_baseline,
-                prior_alpha = prior_alpha,
-                prior_beta = prior_beta
+                seasonality_period_baseline = seasonality_period_baseline
                 )
 
         seasonality_shared = add_fourier_term(
@@ -266,23 +231,27 @@ def pymc_prophet(
                 x = x,
                 n_fourier_components = n_fourier_components,
                 name = 'seasonality_shared',
-                dimension = 1,
-                seasonality_period_baseline = seasonality_period_baseline,
-                prior_alpha = prior_alpha,
-                prior_beta = prior_beta
+                dimension = n_groups-1,
+                seasonality_period_baseline = seasonality_period_baseline
                 )
         
-        sign_indicator = pm.Bernoulli('sign_indicator', p=0.5, shape = n_time_series)
+        all_models = pm.math.concatenate([
+            pm.math.zeros((n_obs, 1)),
+            seasonality_shared]
+            , axis=1)  # Shape: (n_groups+1, n_obs)
+        model_probs = pm.Dirichlet('model_probs', a=np.ones(n_groups), shape=(n_time_series, n_groups))
+        chosen_model_index = pm.Categorical('chosen_model_index', p=model_probs, shape=n_time_series)
+        selected_models = pm.Deterministic(
+            'selected_models', 
+            all_models[:, chosen_model_index]
+        )
         
-        
-        prediction = pm.math.sum([
-            linear_term1,
-            seasonality_individual1,
-            linear_term2*seasonality_individual2,
-            seasonality_shared*((2 * sign_indicator - 1))
-            ], axis = 0)
-        
-        print("Prediction shape: ",prediction.shape.eval())
+        prediction = (
+            linear_term1+
+            seasonality_individual1+
+            selected_models
+            )
+
         precision_obs = pm.Gamma(
             'precision_obs',
             alpha = prior_alpha,
@@ -297,30 +266,65 @@ def pymc_prophet(
             observed = y,
             dims = ['n_obs', 'n_time_series']
         )
+
     return model
 
 
 
 
-
 #%%
+"""
+TO THIS POINT:
+    I am trying to get the concatenation in 
+    all_models = pm.math.concatenate([pm.math.zeros((n_obs, 1)), normal_models], axis=1) 
+    to work.
 
+"""
+
+with pm.Model() as model:
+    n_groups = 4
+    n_obs = 52
+    n_time_series = 11
+    normal_models = pm.Normal(
+        'obs',
+        mu = 0,
+        sigma = 1,
+        shape = (n_obs,n_groups-1)
+    )
+    
+    zero_model = np.zeros(n_obs)  # Zero model with the same shape as the observations
+
+    all_models = pm.math.concatenate([pm.math.zeros((n_obs, 1)), normal_models], axis=1)  # Shape: (n_groups+1, n_obs)
+    
+    model_probs = pm.Dirichlet('model_probs', a=np.ones(n_groups), shape=(n_time_series, n_groups))
+    print(model_probs.shape.eval())
+    chosen_model_index = pm.Categorical('chosen_model_index', p=model_probs, shape=n_time_series)
+        
+    print(all_models[:,chosen_model_index].shape.eval())
+    selected_models = pm.Deterministic(
+        'selected_models', 
+        all_models[:, chosen_model_index]
+    )
+# %%
+(dominant_period, significant_periods) = determine_significant_periods(
+        series = y_train.values[:,0],
+        x_train = x_train.values,
+        threshold = 0.5
+        )
 
 n_fourier_components = 10
-n_changepoints = 10
+n_changepoints = 20
 
 print("n_obs: ", x_train.shape[0])
 print("n_time_series: ",y_train.shape[1])
 print("n_changepoints: ", n_changepoints)
 
 
-target = y_train[['Passengers','Mock_Passengers']]
 
-
-model =  pymc_prophet(
-        x_train = x_train,
-        y_train = target,
-        seasonality_period_baseline = min(significant_periods),
+model =  sorcerer(
+        x_train = x_train.values,
+        y_train = y_train,
+        seasonality_period_baseline = significant_periods[2],
         n_fourier_components = n_fourier_components,
         n_changepoints = n_changepoints
         )
@@ -332,13 +336,15 @@ model =  pymc_prophet(
 with model:
     steps = [pm.NUTS(), pm.HamiltonianMC(), pm.Metropolis()]
     trace = pm.sample(
-        tune = 500,
-        draws = 2000, 
-        chains = 4,
+        tune = 100,
+        draws = 200, 
+        chains = 1,
         cores = 1,
         step = steps[0]
-        #target_accept = 0.9
         )
+
+
+
 
 #%%
 
@@ -349,10 +355,10 @@ for variable in list(trace.posterior.data_vars):
 
 #%%
 
+
 import arviz as az
 
-
-X = x_total
+X = x_test
 
 with model:
     pm.set_data({'x':X})
@@ -363,26 +369,36 @@ model_preds = posterior_predictive.predictions.sortby(preds_out_of_sample)
 
 hdi_values = az.hdi(model_preds)["obs"].transpose("hdi", ...)
 
+# Calculate the number of rows needed for 2 columns
+n_cols = 2  # We want 2 columns
+n_rows = int(np.ceil(y_test.shape[1] / n_cols))  # Number of rows needed
 
+# Create subplots with 2 columns and computed rows
+fig, axs = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(10, 5 * n_rows), constrained_layout=True)
 
-for i in range(target.shape[1]):
-    plt.figure()
-    plt.title(target.columns[i])
-    plt.plot(
-        preds_out_of_sample,
-        (model_preds["obs"].mean(("chain", "draw")).T)[i],
-        color = 'blue'
-        )
-    plt.fill_between(
+# Flatten the axs array to iterate over it easily
+axs = axs.flatten()
+
+# Loop through each column to plot
+for i in range(y_test.shape[1]):
+    ax = axs[i]  # Get the correct subplot
+    ax.plot(x_total, y_total[y_total.columns[i]], color = 'tab:red',  label='Training Data')
+    ax.plot(preds_out_of_sample, (model_preds["obs"].mean(("chain", "draw")).T)[i], color = 'tab:blue', label='Model')
+    ax.fill_between(
         preds_out_of_sample.values,
         hdi_values[0].values[:,i],  # lower bound of the HDI
         hdi_values[1].values[:,i],  # upper bound of the HDI
         color= 'blue',   # color of the shaded region
         alpha=0.4,      # transparency level of the shaded region
     )
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Values')
+    ax.grid(True)
+    ax.legend()
 
-    plt.plot(x_train,target[target.columns[i]], color = 'red')
-    plt.plot(x_test,y_test[y_test.columns[i]], color = 'green')
+# Hide any remaining empty subplots
+for j in range(i + 1, len(axs)):
+    fig.delaxes(axs[j])  # Remove unused axes to clean up the figure
 
 
 # %% Plot trends and fourier components
@@ -390,7 +406,6 @@ print('k values: ', trace.posterior['linear1_k'].mean(('chain','draw')).values)
 
 plt.figure()
 plt.plot(x_train,trace.posterior['linear1_trend'].mean(('chain','draw')).values, label = 'linear_trend')
-plt.plot(x_train,trace.posterior['linear2_trend'].mean(('chain','draw')).values, label = 'linear_trend')
 
 plt.legend()
 
@@ -403,7 +418,71 @@ plt.plot(x_train,trace.posterior['seasonality_shared_fourier'].mean(('chain','dr
 plt.legend()
 
 
-#%%
+# %%
+
+def test_r_squared_absolute(
+        test_data,
+        model_predictions
+        ):
+    n_weeks = len(model_predictions)
+    unnormalized_column_group = [x for x in test_data.columns if 'HOUSEHOLD' in x and 'normalized' not in x]
+    n_groups = len(unnormalized_column_group)
+    ss_res_raw = np.ones((n_weeks,n_groups))
+    for week in range(1,n_weeks+1):
+        df_test_week = test_data[test_data['week'] == week][unnormalized_column_group]
+        if len(df_test_week) == 0:
+            print("No test data")
+            return np.nan, np.nan
+        if len(model_predictions) == 0:
+            print("No profile data")
+            return np.nan, np.nan
+        ss_res_raw[week-1] = ((df_test_week - model_predictions[week-1])**2).values[0,:]
+        
+    ss_res = ss_res_raw.mean(axis = 1)
+
+    return ss_res
+
+
+
+# %% de-normalizing predictions
+
+m_preds1 = (model_preds["obs"].mean(("chain", "draw")).T).values
+v1 = (training_data[unnormalized_column_group].max()-training_data[unnormalized_column_group].min()).values[:,np.newaxis]
+v2 = training_data[unnormalized_column_group].min().values[:,np.newaxis]
+
+m_preds = (m_preds1*v1+v2)
+
+# %%
+
+hest = test_r_squared_absolute(
+        test_data = test_data,
+        model_predictions = m_preds.T
+        )
+
+ko = np.array([ 324066.27020221,  353861.59978992,  359154.8869314 ,
+        461383.36302469,  499535.43893675,  661811.9474528 ,
+        608567.4498722 ,  616030.18662155,  743620.06973728,
+        527215.29526805,  570638.21355619,  505842.41322868,
+        402848.84765924,  349714.4173384 ,  480842.06805023,
+        556501.07213472,  375756.68243674,  389934.08749543,
+        298323.37408965,  594219.78328139,  499853.61571022,
+        488511.26398265,  515151.57002577,  443897.32326999,
+        481654.81253097,  552350.84163434,  519299.14397887,
+        500198.8298041 ,  570600.80624516,  574554.70176082,
+        548735.96112816,  563189.16603876,  750771.2125082 ,
+        842154.11308326,  649789.35308349,  837039.25597015,
+        664096.82995281,  518863.05281273,  594115.68672087,
+        747065.00945079,  716956.72893107,  704981.45620959,
+        695077.32461338,  629963.20618933,  810912.18112303,
+        753211.15295953,  823199.94535604,  804856.02009401,
+       1050495.33897366,  965715.70486884, 1108543.60467126,
+       1423135.35538981])
+
+r_squared = 1-hest/ko
+
 plt.figure()
-plt.plot(x_train, (trace.posterior['linear1_trend'].mean(('chain','draw')).values+1)*(1+3*trace.posterior['seasonality_individual1_fourier'].mean(('chain','draw')).values)-1, label = 'trend and individual_seasonality')
+plt.plot(hest, label = "Sorcerer model")
+plt.plot(ko, label = "Future mean model")
 plt.legend()
+
+print(r_squared.mean().round(2),"+-",r_squared.std().round(2))

@@ -104,9 +104,7 @@ def test_r_squared_profile(
     ss_res = ss_res_raw.mean(axis = 1)
     ss_tot = ss_tot_raw.mean(axis = 1)
 
-    r_squared = 1-ss_res/ss_tot
-
-    return r_squared.mean(), r_squared.std(), r_squared
+    return ss_res, ss_tot
 
 mean_profile_r_squared = test_r_squared_profile(
         test_data = test_data,
@@ -118,12 +116,15 @@ fourier_profile_r_squared = test_r_squared_profile(
         profile = fourier_profile
         )
 
-print("mean r-squared mean model: ",mean_profile_r_squared[0].round(2)," +- ",mean_profile_r_squared[1].round(2))
-print("mean r-squared Fourier model: ",fourier_profile_r_squared[0].round(2)," +- ",fourier_profile_r_squared[1].round(2))
+
+mean_r = 1-mean_profile_r_squared[0]/mean_profile_r_squared[1]
+fourier_r = 1-fourier_profile_r_squared[0]/fourier_profile_r_squared[1]
+
+print("mean r-squared mean model: ",mean_r.mean().round(2)," +- ",mean_r.std().round(2))
+print("mean r-squared Fourier model: ",fourier_r.mean().round(2)," +- ",fourier_r.std().round(2))
 
 
 # %% Plot profiles against future mean and test data as sanity check
-
 
 
 plt.figure(figsize = (15,8))
@@ -153,7 +154,7 @@ plt.grid(True)
 
 plt.savefig('./docs/report/figures/profile_plot.pdf')
 
-# %%
+# %% The scale for total sales, corresponding to the expected sales across the year
 
 unnormalized_column_group = [x for x in df.columns if 'HOUSEHOLD' in x and 'normalized' not in x]
 
@@ -168,14 +169,38 @@ for col in unnormalized_column_group:
 
 projected_scales = np.array(projected_scales)
 
-# %%
+# %% Plot absolute profiles compared to test data
+
+cols = test_data[unnormalized_column_group].columns
+model_data = np.outer(projected_scales,mean_profile)
+
+# Calculate the number of rows needed for 2 columns
+n_cols = 2  # We want 2 columns
+n_rows = int(np.ceil(test_data[unnormalized_column_group].shape[1] / n_cols))  # Number of rows needed
+
+# Create subplots with 2 columns and computed rows
+fig, axs = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(10, 5 * n_rows), constrained_layout=True)
+
+# Flatten the axs array to iterate over it easily
+axs = axs.flatten()
+
+# Loop through each column to plot
+for i in range(test_data[unnormalized_column_group].shape[1]):
+    ax = axs[i]  # Get the correct subplot
+    ax.plot(test_data['date'], test_data[cols[i]], 'o', alpha=0.1, label='Test Data')
+    ax.plot(test_data['date'], model_data[i], label='Model Data', color = 'tab:blue')
+    ax.set_title(f'Column: {cols[i]}')  # Set title for each subplot
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Values')
+    ax.grid(True)
+    ax.legend()
+
+# Hide any remaining empty subplots
+for j in range(i + 1, len(axs)):
+    fig.delaxes(axs[j])  # Remove unused axes to clean up the figure
 
 
-plt.figure()
-plt.plot(test_data['date'],np.outer(projected_scales,mean_profile).T, 'o', alpha = 0.1)
-plt.plot(test_data['date'],test_data[unnormalized_column_group])
-
-#%%
+#%% The profiles scaled to total sales
 
 
 def test_r_squared_absolute(
@@ -204,9 +229,8 @@ def test_r_squared_absolute(
     ss_res = ss_res_raw.mean(axis = 1)
     ss_tot = ss_tot_raw.mean(axis = 1)
 
-    r_squared = 1-ss_res/ss_tot
 
-    return r_squared.mean(), r_squared.std(), r_squared
+    return ss_res, ss_tot
 
 mean_r_squared_absolute = test_r_squared_absolute(
         test_data = test_data,
@@ -220,5 +244,15 @@ fourier_r_squared_absolute = test_r_squared_absolute(
         model_predictions = np.outer(projected_scales,fourier_profile).T
         )
 
-print("mean r-squared mean model: ",mean_r_squared_absolute[0].round(2)," +- ",mean_r_squared_absolute[1].round(2))
-print("mean r-squared Fourier model: ",fourier_r_squared_absolute[0].round(2)," +- ",fourier_r_squared_absolute[1].round(2))
+abs_mean_r = 1-mean_r_squared_absolute[0]/mean_r_squared_absolute[1]
+abs_fourier_r = 1-fourier_r_squared_absolute[0]/fourier_r_squared_absolute[1]
+
+print("mean r-squared mean model: ",abs_mean_r.mean().round(2)," +- ",abs_mean_r.std().round(2))
+print("mean r-squared Fourier model: ",abs_fourier_r.mean().round(2)," +- ",abs_fourier_r.std().round(2))
+
+
+plt.figure()
+plt.plot(mean_r_squared_absolute[0], label = "Mean model")
+plt.plot(fourier_r_squared_absolute[0], label = "Fourier model")
+plt.plot(mean_r_squared_absolute[1], label = "Future mean model")
+plt.legend()
