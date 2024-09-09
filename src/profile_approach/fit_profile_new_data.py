@@ -187,7 +187,7 @@ axs = axs.flatten()
 # Loop through each column to plot
 for i in range(test_data[unnormalized_column_group].shape[1]):
     ax = axs[i]  # Get the correct subplot
-    ax.plot(test_data['date'], test_data[cols[i]], 'o', alpha=0.1, label='Test Data')
+    ax.plot(test_data['date'], test_data[cols[i]], color = 'tab:red',  label='Training Data')
     ax.plot(test_data['date'], model_data[i], label='Model Data', color = 'tab:blue')
     ax.set_title(f'Column: {cols[i]}')  # Set title for each subplot
     ax.set_xlabel('Date')
@@ -199,6 +199,9 @@ for i in range(test_data[unnormalized_column_group].shape[1]):
 for j in range(i + 1, len(axs)):
     fig.delaxes(axs[j])  # Remove unused axes to clean up the figure
 
+
+
+print(np.sum([(test_data[cols[i]]-model_data[i])**2 for i in range(test_data[unnormalized_column_group].shape[1])]))
 
 #%% The profiles scaled to total sales
 

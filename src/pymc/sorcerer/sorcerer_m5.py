@@ -123,10 +123,11 @@ def add_linear_term(
         k_est: float,
         m_est:float,
         n_time_series: int,
-        n_changepoints: int
+        n_changepoints: int,
+        maximum_x_value: float
         ):
     with model:
-        s = pt.tensor.linspace(0, pm.math.max(x), n_changepoints+2)[1:-1]
+        s = pt.tensor.linspace(0, maximum_x_value, n_changepoints+2)[1:-1]
         A = (x[:, None] > s)*1.
         k = pm.Normal(f'{name}_k', mu = k_est,sigma = 1,shape = n_time_series)  # Shape matches time series
         delta = pm.Laplace(f'{name}_delta', mu=0, b = 0.4, shape = (n_time_series, n_changepoints)) # The parameter delta represents the magnitude and direction of the change in growth rate at each changepoint in a piecewise linear model.
@@ -154,6 +155,7 @@ def sorcerer(
         x_train: np.array,
         y_train: np.array,
         seasonality_period_baseline: float,
+        maximum_x_value: float,
         n_groups: int = 3,
         n_changepoints: int = 10,
         n_fourier_components: int = 10
@@ -173,7 +175,8 @@ def sorcerer(
                 k_est = k_est,
                 m_est = m_est,
                 n_time_series = n_time_series,
-                n_changepoints = n_changepoints
+                n_changepoints = n_changepoints,
+                maximum_x_value = maximum_x_value
                 )
 
         seasonality_individual1 = add_fourier_term(
@@ -205,7 +208,7 @@ def sorcerer(
             shared_seasonality_models
             )
 
-        pm.Normal('obs', mu = prediction, sigma = 0.01, observed = y, dims = ['n_obs', 'n_time_series'])
+        pm.Normal('obs', mu = prediction, sigma = 0.05, observed = y, dims = ['n_obs', 'n_time_series'])
     return model
 
 
@@ -217,8 +220,10 @@ def sorcerer(
         )
 
 n_fourier_components = 5
-n_changepoints = 20
-n_groups = 3 # plus no group
+n_changepoints = 5
+n_groups = 2 # plus no group
+maximum_x_value = 1.5
+
 print("n_obs: ", x_train.shape[0])
 print("n_time_series: ",y_train.shape[1])
 print("n_changepoints: ", n_changepoints)
@@ -231,7 +236,8 @@ model =  sorcerer(
         seasonality_period_baseline = significant_periods[2],
         n_groups = n_groups,
         n_fourier_components = n_fourier_components,
-        n_changepoints = n_changepoints
+        n_changepoints = n_changepoints,
+        maximum_x_value = maximum_x_value
         )
 
 
@@ -268,20 +274,15 @@ print(f"Trace saved as {trace_filename}")
 az.plot_trace(trace)
 
 #%%
-
 """
 # Load the InferenceData object
 
-trace_filename = get_timestamped_filename("'./data/models", "nc")
 
-trace = az.from_netcdf(trace_filename)
-
-
+trace = az.from_netcdf('./data/pymc_traces/sorcerer_20240906_2201.nc')
 """
 
-import arviz as az
-
-X = x_train
+#%%
+X = x_test
 
 with model:
     pm.set_data({'x':X})
@@ -381,6 +382,34 @@ v2 = training_data[unnormalized_column_group].min().values[:,np.newaxis]
 
 m_preds = (m_preds1*v1+v2)
 
+
+# Calculate the number of rows needed for 2 columns
+n_cols = 2  # We want 2 columns
+n_rows = int(np.ceil(y_test.shape[1] / n_cols))  # Number of rows needed
+
+# Create subplots with 2 columns and computed rows
+fig, axs = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(10, 5 * n_rows), constrained_layout=True)
+
+# Flatten the axs array to iterate over it easily
+axs = axs.flatten()
+
+# Loop through each column to plot
+for i in range(y_test.shape[1]):
+    ax = axs[i]  # Get the correct subplot
+    ax.plot(test_data['date'], (test_data[unnormalized_column_group].values.T)[i], color = 'tab:red',  label='Training Data')
+    ax.plot(test_data['date'], (m_preds)[i], color = 'tab:blue', label='Model')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Values')
+    ax.grid(True)
+    ax.legend()
+
+# Hide any remaining empty subplots
+for j in range(i + 1, len(axs)):
+    fig.delaxes(axs[j])  # Remove unused axes to clean up the figure
+
+print(np.sum([((test_data[unnormalized_column_group].values.T)[i]-(m_preds)[i])**2 for i in range(y_test.shape[1])]))
+
+
 # %%
 
 hest = test_r_squared_absolute(
@@ -462,3 +491,80 @@ plt.figure()
 plt.plot(x_train,trace.posterior['seasonality_shared_fourier'].mean(('chain','draw')).values)
 plt.title('seasonality_shared_fourier')
 
+
+#%%
+
+
+
+with model:
+    pm.set_data({'x':x_train})
+    posterior_predictive_train = pm.sample_posterior_predictive(trace = trace, predictions=True)
+    pm.set_data({'x':x_test})
+    posterior_predictive_test = pm.sample_posterior_predictive(trace = trace, predictions=True)
+    pm.set_data({'x':x_total})
+    posterior_predictive_total = pm.sample_posterior_predictive(trace = trace, predictions=True)
+    
+preds_out_of_sample_train = posterior_predictive_train.predictions_constant_data.sortby('x')['x']
+preds_out_of_sample_test = posterior_predictive_test.predictions_constant_data.sortby('x')['x']
+preds_out_of_sample_total = posterior_predictive_total.predictions_constant_data.sortby('x')['x']
+
+model_preds_train = posterior_predictive_train.predictions.sortby(preds_out_of_sample_train)
+model_preds_test = posterior_predictive_test.predictions.sortby(preds_out_of_sample_test)
+model_preds_total = posterior_predictive_total.predictions.sortby(preds_out_of_sample_total)
+
+hdi_values_train = az.hdi(model_preds_train)["obs"].transpose("hdi", ...)
+hdi_values_test = az.hdi(model_preds_test)["obs"].transpose("hdi", ...)
+hdi_values_total = az.hdi(model_preds_total)["obs"].transpose("hdi", ...)
+
+
+
+# %%
+# Calculate the number of rows needed for 2 columns
+n_cols = 2  # We want 2 columns
+n_rows = int(np.ceil(y_test.shape[1] / n_cols))  # Number of rows needed
+
+# Create subplots with 2 columns and computed rows
+fig, axs = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(10, 5 * n_rows), constrained_layout=True)
+
+# Flatten the axs array to iterate over it easily
+axs = axs.flatten()
+
+# Loop through each column to plot
+for i in range(y_test.shape[1]):
+    ax = axs[i]  # Get the correct subplot
+    ax.plot(x_total, y_total[y_total.columns[i]], color = 'tab:red',  label='Training Data')
+    ax.plot(preds_out_of_sample_train, (model_preds_train["obs"].mean(("chain", "draw")).T)[i], color = 'tab:blue', label='Model on training data')
+    ax.fill_between(
+        preds_out_of_sample_train.values,
+        hdi_values_train[0].values[:,i],  # lower bound of the HDI
+        hdi_values_train[1].values[:,i],  # upper bound of the HDI
+        color= 'blue',   # color of the shaded region
+        alpha=0.4,      # transparency level of the shaded region
+    )
+    
+    ax.plot(preds_out_of_sample_test, (model_preds_test["obs"].mean(("chain", "draw")).T)[i], color = 'tab:green', label='Model on test data')
+    ax.fill_between(
+        preds_out_of_sample_test.values,
+        hdi_values_test[0].values[:,i],  # lower bound of the HDI
+        hdi_values_test[1].values[:,i],  # upper bound of the HDI
+        color= 'green',   # color of the shaded region
+        alpha=0.4,      # transparency level of the shaded region
+    )
+    
+    ax.plot(preds_out_of_sample_total, (model_preds_total["obs"].mean(("chain", "draw")).T)[i], color = 'tab:cyan', label='Model on training and test data')
+    ax.fill_between(
+        preds_out_of_sample_total.values,
+        hdi_values_total[0].values[:,i],  # lower bound of the HDI
+        hdi_values_total[1].values[:,i],  # upper bound of the HDI
+        color= 'cyan',   # color of the shaded region
+        alpha=0.4,      # transparency level of the shaded region
+    )
+    
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Values')
+    ax.grid(True)
+    ax.legend()
+
+# Hide any remaining empty subplots
+for j in range(i + 1, len(axs)):
+    fig.delaxes(axs[j])  # Remove unused axes to clean up the figure
