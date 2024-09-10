@@ -69,26 +69,6 @@ def normalized_weekly_store_category_household_sales() -> pd.DataFrame:
         df_temp_filtered[item + '_normalized'] = df_temp_filtered[item] / df_temp_filtered[item + '_yearly_mean']
 
     return df_temp_filtered[[x for x in df_temp_filtered.columns if (('HOUSEHOLD' in x or 'week' in x or 'year' in x or 'date' in x) and ('yearly' not in x))]]
-    
-def feature_engineering(
-        df: pd.DataFrame(),
-        column_list: list,
-        context_length: int,
-        train_length: int,
-        period: int
-        ):
-    
-    df_features = pd.DataFrame(index = df.index[:train_length])
-    for column in column_list:
-        gradient_column = df[column].diff()
-        gradient_column.name = column+'_grad'
-        df_features = pd.concat([df_features, gradient_column], axis=1)
-        for i in range(1,context_length):
-            shifted_col = df[column].diff().shift(i)
-            shifted_col.name = column + f'_{i}'  # Name the new column
-            df_features = pd.concat([df_features, shifted_col], axis=1)
 
-    df_features.dropna(inplace=True)
-    return df_features, df[column_list].iloc[0].values
 
 
