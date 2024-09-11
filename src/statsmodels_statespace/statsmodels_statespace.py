@@ -1,5 +1,5 @@
 #%% Import section
-from src.functions import load_passengers_data
+from src.load_data import load_passengers_data
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.26 (MiKTeX 24.4) (preloaded format=pdflatex 2024.8.6)  4 SEP 2024 13:25
+This is pdfTeX, Version 3.141592653-2.6-1.40.26 (MiKTeX 24.4) (preloaded format=pdflatex 2024.8.6)  11 SEP 2024 10:49
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1006,63 +1006,76 @@ l.83 	\tableofcontents
 
 ]
 Chapter 1.
-) (chapters/profile_approach.tex
+
+Overfull \hbox (19.611pt too wide) in paragraph at lines 12--13
+[]\T1/cmr/bx/n/10.95 Decision Trees (via XG-Boost, Light-GBM, PyMC): \T1/cmr/m/
+n/10.95 A non-linear, non-parametric
+ []
+
+
 
 [3
 
 ]
+<./figures/raw_data.pdf, id=111, 867.24pt x 578.16pt>
+File: ./figures/raw_data.pdf Graphic file (type pdf)
+<use ./figures/raw_data.pdf>
+Package pdftex.def Info: ./figures/raw_data.pdf  used on input line 32.
+(pdftex.def)             Requested size: 418.25368pt x 278.83694pt.
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+) (chapters/profile_approach.tex
+
+[4]
+
+[5 <./figures/raw_data.pdf>]
 Chapter 2.
 
 
-[4
+[6
 
 ]
 
-[5]
-
-[6]) (chapters/pymc_approach.tex
-
 [7]
+
+[8]) (chapters/pymc_approach.tex
+
+[9]
 Chapter 3.
 ) (chapters/statsmodels_approach.tex
 
-[8
+[10
 
 ]
 Chapter 4.
 ) (chapters/light_gbm_approach.tex
 
-[9
+[11
 
 ]
 Chapter 5.
 )
 
-[10
+[12
 
 ] (document.aux)
  ***********
 LaTeX2e <2024-06-01> patch level 2
 L3 programming layer <2024-05-27>
  ***********
-
-
-Package rerunfilecheck Warning: File `document.out' has changed.
-(rerunfilecheck)                Rerun to get outlines right
-(rerunfilecheck)                or use package `bookmark'.
-
-Package rerunfilecheck Info: Checksums for `document.out':
-(rerunfilecheck)             Before: 931E70A7D70B846D1AFE82D20879D818;481
-(rerunfilecheck)             After:  EF6104305A6B996AC80C3D39FA5FF844;1458.
+Package rerunfilecheck Info: File `document.out' has not changed.
+(rerunfilecheck)             Checksum: F23012D5E07FA902783EE1D1A0CD1645;1543.
  ) 
 Here is how much of TeX's memory you used:
- 27255 strings out of 473904
- 493567 string characters out of 5736389
+ 27285 strings out of 473904
+ 494135 string characters out of 5736389
  1940908 words of memory out of 5000000
- 49536 multiletter control sequences out of 15000+600000
+ 49561 multiletter control sequences out of 15000+600000
  577116 words of font info for 77 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 84i,18n,93p,547b,483s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 84i,18n,93p,682b,546s stack positions out of 10000i,1000n,20000p,200000b,200000s
  <C:\Users\petersen.jonas\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dp
 i600\ecrm0800.pk> <C:\Users\petersen.jonas\AppData\Local\MiKTeX\fonts/pk/ljfour
 /jknappen/ec/dpi600\ecti1095.pk> <C:\Users\petersen.jonas\AppData\Local\MiKTeX\
@@ -1085,9 +1098,9 @@ m/cmr8.pfb><C:/Program Files/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><
 C:/Program Files/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy6.pfb><C:/Program Fi
 les/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy8.pfb><C:/Program Files/MiKTeX/fo
 nts/type1/public/amsfonts/symbols/msbm10.pfb>
-Output written on document.pdf (11 pages, 240557 bytes).
+Output written on document.pdf (13 pages, 296996 bytes).
 PDF statistics:
- 541 PDF objects out of 1000 (max. 8388607)
- 66 named destinations out of 1000 (max. 500000)
- 53 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 663 PDF objects out of 1000 (max. 8388607)
+ 71 named destinations out of 1000 (max. 500000)
+ 130 words of extra memory for PDF output out of 10000 (max. 10000000)
 

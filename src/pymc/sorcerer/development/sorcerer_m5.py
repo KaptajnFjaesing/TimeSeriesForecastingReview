@@ -6,7 +6,7 @@ Created on Thu Sep  5 14:22:27 2024
 """
 
 
-from src.functions import (
+from src.load_data import (
     normalized_weekly_store_category_household_sales,
     load_m5_weekly_store_category_sales_data
     )

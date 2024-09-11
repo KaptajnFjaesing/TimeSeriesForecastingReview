@@ -1,4 +1,4 @@
-from src.functions import load_passengers_data
+from src.load_data import load_passengers_data
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -120,3 +120,117 @@ plt.ylabel('Nr. of airpassengers')
 plt.legend()
 
 # Results are comparable.
+
+# %% Test of multivariate case
+
+
+def feature_generation(
+        df: pd.DataFrame,
+        time_series_column: str,
+        context_length: int,
+        seasonality_period: float):
+    df_features = df.copy()
+    df_features[time_series_column+'_log'] = np.log(df_features[time_series_column]) # Log-scale
+    df_0 = df_features.iloc[0,:] # save first datapoint
+    df_features[time_series_column+'_log_diff'] = df_features[time_series_column+'_log'].diff() # gradient
+    for i in range(1,context_length):
+        df_features[f'{i}'] = df_features[time_series_column+'_log_diff'].shift(i) # Fill lagged values as features    
+    df_features.dropna(inplace=True)
+    df_features['time_sine'] = np.sin(2*np.pi*df_features.index/seasonality_period) # Create a sine time-feature with the period set to 12 months
+    
+    return df_0, df_features
+
+def light_gbm_predict(
+        x_test,
+        forecast_horizon,
+        context_length,
+        seasonality_period,
+        model
+        ):
+
+    predictions = np.zeros(forecast_horizon)
+    context = x_test.iloc[0].values.reshape(1,-1)
+    test_start_index_plus_one = x_test.index[0]+1
+
+    for i in range(forecast_horizon):
+        predictions[i] = model.predict(context)[0]
+        context[0,1:context_length] = context[0,0:context_length-1]
+        context[0,0] = predictions[i]
+        context[0,-1] = np.sin(2*np.pi*(test_start_index_plus_one+i)/seasonality_period) # this is for next iteration
+    return predictions
+
+
+
+df = df_passengers
+seasonality_period = 12
+context_length = 30
+forecast_horizon = 26
+
+time_series_columns = ["Passengers"]
+
+rescaled_forecasts = np.ones((len(time_series_columns),forecast_horizon))
+
+for i in range(len(time_series_columns)):
+
+    df_0, df_features = feature_generation(
+        df = df,
+        time_series_column = time_series_columns[i],
+        context_length = context_length,
+        seasonality_period = seasonality_period
+        )
+    
+    columns = [x for x in df_features.columns if 'Passenger' not in x and 'Date' not in x and 'week' not in x and 'year' not in x]
+    
+    x_train = df_features[columns].iloc[:-forecast_horizon]
+    y_train = df_features[time_series_columns[i]+'_log_diff'].iloc[:-forecast_horizon]
+    
+    x_test = df_features[columns].iloc[-forecast_horizon:]
+    y_test = df_features[time_series_columns[i]+'_log_diff'].iloc[-forecast_horizon:]
+
+    # Create LightGBM datasets
+    train_dataset = lgb.Dataset(
+        data = x_train.values,
+        label = y_train.values
+        )
+        
+    # Define model parameters
+    params = {
+        'verbose': -1,
+        'objective': 'regression',
+        'metric': 'rmse',
+        'boosting_type': 'gbdt',
+        'num_leaves': 5,
+        'learning_rate': 0.1,
+        'feature_fraction': 0.9
+    }
+        
+    # Train the model with early stopping
+    model = lgb.train(
+        params,
+        train_dataset, 
+        num_boost_round = 2000
+        )
+    
+    train_predict = model.predict(x_train.values)
+
+    
+    predictions = light_gbm_predict(
+        x_test = x_test,
+        forecast_horizon = forecast_horizon,
+        context_length = context_length,
+        seasonality_period = seasonality_period,
+        model = model
+        )
+
+    baseline = df_features[time_series_columns[i]][x_test.index-1].iloc[0]
+    rescaled_forecasts[i] = baseline*np.exp(np.cumsum(predictions))
+    
+# %%
+
+                        
+plt.figure()
+plt.plot(df_passengers.index,np.exp(np.cumsum(df_passengers['Passengers_log_diff'])+df_passengers_0['Passengers_log']),label='Actual')
+plt.plot(df_features[columns].iloc[-forecast_horizon:].index,rescaled_forecasts[0],'.-',label='Predicted (test)')
+plt.xlabel('Time (months)')
+plt.ylabel('Nr. of airpassengers')
+plt.legend()
