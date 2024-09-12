@@ -66,7 +66,6 @@ for forecast_horizon in tqdm(range(min_forecast_horizon,max_forecast_horizon+1))
                                                               'harmonics':harmonics}],
                                               irregular=True
                                               )
-    
         mlefit = struobs.fit(disp=0)
         model_results = mlefit.get_forecast(forecast_horizon).summary_frame(alpha=0.05)
         model_denormalized.append(model_results['mean']*(y_train_max[y_train_max.index[i]]-y_train_min[y_train_min.index[i]])+y_train_min[y_train_min.index[i]])
@@ -75,11 +74,11 @@ for forecast_horizon in tqdm(range(min_forecast_horizon,max_forecast_horizon+1))
 
 # %%
 
-from src.utils import compute_metrics
+from src.utils import model_forecasts
 
-test_data = df.iloc[-max_forecast_horizon:].reset_index()
+test_data = df.iloc[-max_forecast_horizon:].reset_index(drop = True)
 
-stacked = compute_metrics(
+stacked = model_forecasts(
          model_forecasts = model_forecasts,
          test_data = test_data[unnormalized_column_group],
          min_forecast_horizon = min_forecast_horizon

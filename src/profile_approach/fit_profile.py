@@ -5,15 +5,10 @@ Created on Wed Sep  4 13:34:11 2024
 @author: petersen.jonas
 """
 
-from src.load_data import (
-    normalized_weekly_store_category_household_sales,
-    load_m5_weekly_store_category_sales_data
-    )
+from src.load_data import normalized_weekly_store_category_household_sales
 import matplotlib.pyplot as plt
 
 df = normalized_weekly_store_category_household_sales()
-_,weekly_store_category_household_sales,_ = load_m5_weekly_store_category_sales_data()
-
 
 # %%
 import numpy as np
@@ -36,9 +31,7 @@ df_melted = training_data.melt(
 
 
 #%% Mean profile
-
 mean_profile = [df_melted['Value'][df_melted['week'] == week].values.mean() for week in range(1,n_weeks+1)]
-
 
 #%% Fourier profile
 
@@ -74,8 +67,6 @@ week_range_data = fourier_series(
     )
 
 fourier_profile = week_range_data @ beta
-
-
 
 # %% Calculate r-squared
 

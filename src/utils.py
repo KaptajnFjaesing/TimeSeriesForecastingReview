@@ -7,7 +7,7 @@ Created on Wed Sep 11 13:25:03 2024
 import pandas as pd
 import datetime
 
-def compute_metrics(model_forecasts, test_data, min_forecast_horizon):
+def compute_residuals(model_forecasts, test_data, min_forecast_horizon):
     """
     Compute the forecast error metrics for multiple models.
 
