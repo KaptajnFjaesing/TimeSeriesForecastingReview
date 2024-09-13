@@ -65,9 +65,7 @@ fig, axs = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(20, 5 * n_rows), co
 
 # Flatten the axs array to iterate over it easily
 axs = axs.flatten()
-mean_mean_MASE = {}
 for j in range(len(list_of_models_forecasts)):
-    mean_MASE = []
     mean_df = list_of_models_forecasts[j].abs().groupby(list_of_models_forecasts[j].index).mean()
     # Loop through each column to plot
     for i in range(len(mean_df.columns)):
@@ -80,14 +78,41 @@ for j in range(len(list_of_models_forecasts)):
         ax.set_ylabel('MASE')
         ax.grid(True)
         ax.legend()
-        mean_MASE.append((y_mean/mean_grad).mean())
-    
-    mean_mean_MASE[forecast_model_names[j]] = np.mean(mean_MASE)
+
     # Hide any remaining empty subplots
     for j in range(i + 1, len(axs)):
         fig.delaxes(axs[j])  # Remove unused axes to clean up the figure
 
-# %%
+# %% MASE plot
 
-print(mean_mean_MASE)
+
+MASE_averaged_over_time_series = np.zeros((len(list_of_models_forecasts),max(stacked_forecasts_statespace.index)+1))
+for j in range(len(list_of_models_forecasts)):
+    average_abs_residual = list_of_models_forecasts[j].abs().groupby(list_of_models_forecasts[j].index).mean() # averaged over rolls
+    time_series_columns = average_abs_residual.columns
+    MASE = average_abs_residual/abs_mean_gradient_training_data
+    MASE_averaged_over_time_series[j] = MASE.mean(axis = 1)
+
+    
+plt.figure(figsize = (8,5))
+alpha = 1
+plt.errorbar(
+    x = MASE_averaged_over_time_series.mean(axis= 1),  # Original y values plotted on x-axis
+    y = forecast_model_names,  # Original x values plotted on y-axis
+    xerr=MASE_averaged_over_time_series.std(axis= 1),  # Error now applied to the x-axis
+    fmt='o', color='tab:blue', ecolor='tab:blue', elinewidth=2, capsize=3,
+    markersize=5, linewidth=1.5, alpha=alpha
+)
+
+
+# Customizing the plot style
+plt.grid(visible=True, which='both', linewidth=0.6, color='gray', alpha=0.7)
+plt.ylabel('Model', fontsize=12)  # Flipped label
+plt.xlabel('Avg MASE', fontsize=12)  # Flipped label
+plt.title('Profile Accuracy Comparison',  fontsize=14)
+# Rotate y-axis labels by 90 degrees (if necessary)
+plt.yticks(rotation=0)  # Keep y-axis labels horizontal
+# Customize tick parameters
+plt.tick_params(axis='both', which='major', labelsize=12, length=6, width=1, colors='black', grid_color='gray', grid_alpha=0.7)
+plt.tight_layout()
 

@@ -5,7 +5,7 @@ Created on Thu Sep 12 12:18:57 2024
 @author: petersen.jonas
 """
 
-from src.load_data import normalized_weekly_store_category_household_sales
+from src.utils import normalized_weekly_store_category_household_sales
 
 df = normalized_weekly_store_category_household_sales()
 
@@ -51,11 +51,11 @@ for forecast_horizon in tqdm(range(min_forecast_horizon,52+1)):
 
 #%%
 
-from src.utils import model_forecasts
+from src.utils import compute_residuals
 
 test_data = df.iloc[-max_forecast_horizon:].reset_index(drop = True)
 
-stacked = model_forecasts(
+stacked = compute_residuals(
          model_forecasts = model_forecasts,
          test_data = test_data[unnormalized_column_group],
          min_forecast_horizon = min_forecast_horizon

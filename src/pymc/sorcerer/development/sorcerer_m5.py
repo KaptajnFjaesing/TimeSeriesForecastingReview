@@ -6,7 +6,7 @@ Created on Thu Sep  5 14:22:27 2024
 """
 
 
-from src.load_data import (
+from src.utils import (
     normalized_weekly_store_category_household_sales,
     load_m5_weekly_store_category_sales_data
     )
@@ -17,93 +17,10 @@ import pytensor as pt
 import datetime
 import arviz as az
 
-df = normalized_weekly_store_category_household_sales()
-_,weekly_store_category_household_sales,_ = load_m5_weekly_store_category_sales_data()
-
-
-n_weeks = 52
-normalized_column_group = [x for x in df.columns if '_normalized' in x ]
-unnormalized_column_group = [x for x in df.columns if 'HOUSEHOLD' in x and 'normalized' not in x]
-
-
-training_data = df.iloc[:-n_weeks]
-test_data = df.iloc[-n_weeks:]
-
-future_mean_model = test_data[normalized_column_group].mean(axis = 1)
-
-
-# %%
-x_train = (training_data['date'].astype('int64')//10**9 - (training_data['date'].astype('int64')//10**9).min())/((training_data['date'].astype('int64')//10**9).max() - (training_data['date'].astype('int64')//10**9).min())
-y_train = (training_data[unnormalized_column_group]-training_data[unnormalized_column_group].min())/(training_data[unnormalized_column_group].max()-training_data[unnormalized_column_group].min())
-
-x_test = (test_data['date'].astype('int64')//10**9 - (training_data['date'].astype('int64')//10**9).min())/((training_data['date'].astype('int64')//10**9).max() - (training_data['date'].astype('int64')//10**9).min())
-y_test = (test_data[unnormalized_column_group]-training_data[unnormalized_column_group].min())/(training_data[unnormalized_column_group].max()-training_data[unnormalized_column_group].min())
-
-x_total = (df['date'].astype('int64')//10**9 - (training_data['date'].astype('int64')//10**9).min())/((training_data['date'].astype('int64')//10**9).max() - (training_data['date'].astype('int64')//10**9).min())
-y_total = (df[unnormalized_column_group]-training_data[unnormalized_column_group].min())/(training_data[unnormalized_column_group].max()-training_data[unnormalized_column_group].min())
-
-
-
-# Calculate the number of rows needed for 2 columns
-n_cols = 2  # We want 2 columns
-n_rows = int(np.ceil(y_test.shape[1] / n_cols))  # Number of rows needed
-
-# Create subplots with 2 columns and computed rows
-fig, axs = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(10, 5 * n_rows), constrained_layout=True)
-
-# Flatten the axs array to iterate over it easily
-axs = axs.flatten()
-
-# Loop through each column to plot
-for i in range(y_test.shape[1]):
-    ax = axs[i]  # Get the correct subplot
-    ax.plot(x_train, y_train[y_train.columns[i]], color = 'tab:red',  label='Training Data')
-    ax.plot(x_test, y_test[y_test.columns[i]], color = 'tab:blue', label='Test Data')
-    ax.set_xlabel('Date')
-    ax.set_ylabel('Values')
-    ax.grid(True)
-    ax.legend()
-
-# Hide any remaining empty subplots
-for j in range(i + 1, len(axs)):
-    fig.delaxes(axs[j])  # Remove unused axes to clean up the figure
-# %%
-
-
-
 # Function to generate a timestamped filename
 def get_timestamped_filename(base_filename, extension):
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     return f"{base_filename}_{timestamp}.{extension}"
-
-
-def determine_significant_periods(
-        series: np.array,
-        x_train: np.array,
-        threshold: float
-        ) -> tuple:
-    # FFT of the time series
-    fft_result = np.fft.fft(series)
-    fft_magnitude = np.abs(fft_result)
-    fft_freqs = np.fft.fftfreq(len(series), x_train[1] - x_train[0])
-
-    # Get positive frequencies
-    positive_freqs = fft_freqs[fft_freqs > 0]
-    positive_magnitudes = fft_magnitude[fft_freqs > 0]
-
-
-    # Find the dominant component
-    max_magnitude = np.max(positive_magnitudes)
-    max_index = np.argmax(positive_magnitudes)
-    dominant_frequency = positive_freqs[max_index]
-    dominant_period = 1 / dominant_frequency
-
-
-    # Find components that are more than K fraction of the maximum
-    significant_indices = np.where(positive_magnitudes >= threshold * max_magnitude)[0]
-    significant_frequencies = positive_freqs[significant_indices]
-    significant_periods = 1 / significant_frequencies
-    return dominant_period, significant_periods
 
 
 def create_fourier_features(
@@ -211,14 +128,94 @@ def sorcerer(
         pm.Normal('obs', mu = prediction, sigma = 0.05, observed = y, dims = ['n_obs', 'n_time_series'])
     return model
 
+df = normalized_weekly_store_category_household_sales()
+_,weekly_store_category_household_sales,_ = load_m5_weekly_store_category_sales_data()
+
 
 # %%
+n_weeks = 52
+normalized_column_group = [x for x in df.columns if '_normalized' in x ]
+unnormalized_column_group = [x for x in df.columns if 'HOUSEHOLD' in x and 'normalized' not in x]
+
+
+training_data = df.iloc[:-n_weeks]
+test_data = df.iloc[-n_weeks:]
+
+x_train = (training_data['date'].astype('int64')//10**9 - (training_data['date'].astype('int64')//10**9).min())/((training_data['date'].astype('int64')//10**9).max() - (training_data['date'].astype('int64')//10**9).min())
+y_train = (training_data[unnormalized_column_group]-training_data[unnormalized_column_group].min())/(training_data[unnormalized_column_group].max()-training_data[unnormalized_column_group].min())
+
+x_test = (test_data['date'].astype('int64')//10**9 - (training_data['date'].astype('int64')//10**9).min())/((training_data['date'].astype('int64')//10**9).max() - (training_data['date'].astype('int64')//10**9).min())
+y_test = (test_data[unnormalized_column_group]-training_data[unnormalized_column_group].min())/(training_data[unnormalized_column_group].max()-training_data[unnormalized_column_group].min())
+
+x_total = (df['date'].astype('int64')//10**9 - (training_data['date'].astype('int64')//10**9).min())/((training_data['date'].astype('int64')//10**9).max() - (training_data['date'].astype('int64')//10**9).min())
+y_total = (df[unnormalized_column_group]-training_data[unnormalized_column_group].min())/(training_data[unnormalized_column_group].max()-training_data[unnormalized_column_group].min())
+
+
+def determine_significant_periods(
+        series: np.array,
+        x_train: np.array,
+        threshold: float
+        ) -> tuple:
+    # FFT of the time series
+    fft_result = np.fft.fft(series)
+    fft_magnitude = np.abs(fft_result)
+    fft_freqs = np.fft.fftfreq(len(series), x_train[1] - x_train[0])
+
+    # Get positive frequencies
+    positive_freqs = fft_freqs[fft_freqs > 0]
+    positive_magnitudes = fft_magnitude[fft_freqs > 0]
+
+
+    # Find the dominant component
+    max_magnitude = np.max(positive_magnitudes)
+    max_index = np.argmax(positive_magnitudes)
+    dominant_frequency = positive_freqs[max_index]
+    dominant_period = 1 / dominant_frequency
+
+
+    # Find components that are more than K fraction of the maximum
+    significant_indices = np.where(positive_magnitudes >= threshold * max_magnitude)[0]
+    significant_frequencies = positive_freqs[significant_indices]
+    significant_periods = 1 / significant_frequencies
+    return dominant_period, significant_periods
+
 (dominant_period, significant_periods) = determine_significant_periods(
         series = y_train.values[:,0],
         x_train = x_train.values,
         threshold = 0.5
         )
 
+print(n_weeks)
+print(significant_periods)
+print(len(x_train)*np.array(significant_periods))
+
+
+# %%Calculate the number of rows needed for 2 columns
+n_cols = 2  # We want 2 columns
+n_rows = int(np.ceil(y_test.shape[1] / n_cols))  # Number of rows needed
+
+# Create subplots with 2 columns and computed rows
+fig, axs = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(10, 5 * n_rows), constrained_layout=True)
+
+# Flatten the axs array to iterate over it easily
+axs = axs.flatten()
+
+# Loop through each column to plot
+for i in range(y_test.shape[1]):
+    ax = axs[i]  # Get the correct subplot
+    ax.plot(x_train, y_train[y_train.columns[i]], color = 'tab:red',  label='Training Data')
+    ax.plot(x_test, y_test[y_test.columns[i]], color = 'tab:blue', label='Test Data')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Values')
+    ax.grid(True)
+    ax.legend()
+
+# Hide any remaining empty subplots
+for j in range(i + 1, len(axs)):
+    fig.delaxes(axs[j])  # Remove unused axes to clean up the figure
+
+
+# %%
 n_fourier_components = 5
 n_changepoints = 5
 n_groups = 2 # plus no group
