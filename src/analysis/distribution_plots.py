@@ -60,11 +60,11 @@ from scipy.stats import gamma, norm
 
 
 
-alpha = 2
-beta = 3
+alpha = 100
+beta = 0.1
 
 # Define the x values (support for the Gamma distribution)
-x = np.linspace(0, 20, 500)
+x = np.linspace(0, 1000, 500)
 
 # Calculate the PDF of the Gamma distribution
 pdf_gamma = gamma.pdf(x, a=alpha, scale=1/beta)  # scale = 1/beta is used because scipy uses scale = 1/rate

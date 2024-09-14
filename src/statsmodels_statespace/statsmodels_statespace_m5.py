@@ -74,11 +74,11 @@ for forecast_horizon in tqdm(range(min_forecast_horizon,max_forecast_horizon+1))
 
 # %%
 
-from src.utils import model_forecasts
+from src.utils import compute_residuals
 
 test_data = df.iloc[-max_forecast_horizon:].reset_index(drop = True)
 
-stacked = model_forecasts(
+stacked = compute_residuals(
          model_forecasts = model_forecasts,
          test_data = test_data[unnormalized_column_group],
          min_forecast_horizon = min_forecast_horizon
