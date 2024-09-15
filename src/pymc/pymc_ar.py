@@ -23,14 +23,13 @@ with pm.Model() as model:
     coefs = pm.Normal("coefs", mu=0, sigma=1, size=ar_order + 1)  # +1 for the constant term
     
     # Initial distribution for the AR process
-    init_dist = pm.Normal.dist(mu=0, sigma=100, shape=ar_order)
+    init_dist = pm.Normal.dist(mu=0, sigma=1, shape=ar_order)
     
     # Define the AR process
     ar_process = pm.AR("ar_process", 
                        rho=coefs, 
-                       sigma=1.0, 
+                       sigma=1, 
                        init_dist=init_dist, 
-                       constant=True,
                        observed=series
                        )
 with model:

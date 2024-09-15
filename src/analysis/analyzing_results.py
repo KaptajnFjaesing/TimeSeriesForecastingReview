@@ -17,7 +17,7 @@ stacked_forecasts_sorcerer = pd.read_pickle('./data/results/stacked_forecasts_so
 abs_mean_gradient_training_data = pd.read_pickle('./data/results/abs_mean_gradient_training_data.pkl')
 
 list_of_models_forecasts = [stacked_forecasts_statespace, stacked_forecasts_exponential_smoothing, stacked_forecasts_mean_profile, stacked_forecasts_sorcerer]
-forecast_model_names = ["SARIMA", "Exponential Smoothing", "Mean Profile", "Sorcerer"]
+forecast_model_names = ["SARIMA", "Exponential Smoothing", "Static Mean Profile", "Sorcerer"]
 colors = ['tab:blue', 'tab:red', 'tab:green', "tab:cyan"]
 
 #%%

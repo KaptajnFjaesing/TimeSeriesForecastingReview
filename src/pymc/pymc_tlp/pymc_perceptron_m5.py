@@ -13,6 +13,13 @@ import numpy as np
 from tqdm import tqdm
 import pandas as pd
 
+import src.pymc_functions as fu_pymc
+
+activation = 'swish'
+n_hidden_layer1 = 20
+n_hidden_layer2 = 20
+
+
 seasonality_period = 52
 min_forecast_horizon = 26
 max_forecast_horizon = 52
@@ -30,6 +37,19 @@ for forecast_horizon in tqdm(range(min_forecast_horizon,52+1)):
     y_train = (training_data[unnormalized_column_group]-y_train_min)/(y_train_max-y_train_min)
     y_train['date'] = training_data['date']
     model_denormalized = []
+    
+    
+    
+
+
+    model = fu_pymc.construct_pymc_tlp(
+        x_train = x_train,
+        y_train = y_train,
+        n_hidden_layer1 = n_hidden_layer1,
+        n_hidden_layer2 = n_hidden_layer2,
+        activation = activation
+        )
+    
     
     time_series_columns = [x for x in y_train.columns if not 'date' in x]
     for i in range(len(time_series_columns)):
