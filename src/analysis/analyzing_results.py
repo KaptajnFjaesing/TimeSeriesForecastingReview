@@ -1,3 +1,4 @@
+#%%
 # -*- coding: utf-8 -*-
 """
 Created on Wed Sep 11 13:28:52 2024
@@ -15,7 +16,7 @@ stacked_forecasts_static_mean_profile = pd.read_pickle('./data/results/stacked_f
 stacked_forecasts_rolling_mean_profile = pd.read_pickle('./data/results/stacked_forecasts_rolling_mean_profile.pkl')
 stacked_forecasts_sorcerer = pd.read_pickle('./data/results/stacked_forecasts_sorcerer.pkl')
 stacked_forecasts_light_gbm = pd.read_pickle('./data/results/stacked_forecasts_light_gbm.pkl')
-
+stacked_forecasts_deepar = pd.read_pickle('./data/results/stacked_forecasts_deepar.pkl')
 abs_mean_gradient_training_data = pd.read_pickle('./data/results/abs_mean_gradient_training_data.pkl')
 
 list_of_models_forecasts = [
@@ -24,7 +25,8 @@ list_of_models_forecasts = [
     stacked_forecasts_static_mean_profile,
     stacked_forecasts_rolling_mean_profile,
     stacked_forecasts_sorcerer,
-    stacked_forecasts_light_gbm
+    stacked_forecasts_light_gbm,
+    stacked_forecasts_deepar
     ]
 forecast_model_names = [
     "SARIMA",
@@ -32,7 +34,8 @@ forecast_model_names = [
     "Static Mean Profile",
     "Rolling Mean Profile",
     "Sorcerer",
-    "Light GBM"
+    "Light GBM",
+    "DeepAR"
     ]
 colors = [
     'tab:blue',
@@ -40,7 +43,8 @@ colors = [
     'tab:green',
     'tab:orange',
     'tab:cyan',
-    'tab:brown'
+    'tab:brown',
+    'tab:olive'
     ]
 
 
