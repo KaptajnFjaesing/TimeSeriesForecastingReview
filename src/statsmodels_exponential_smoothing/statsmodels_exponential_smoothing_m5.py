@@ -87,4 +87,5 @@ stacked = compute_residuals(
          min_forecast_horizon = min_forecast_horizon
          )   
 
+# %%
 stacked.to_pickle('./data/results/stacked_forecasts_exponential_smoothing.pkl')

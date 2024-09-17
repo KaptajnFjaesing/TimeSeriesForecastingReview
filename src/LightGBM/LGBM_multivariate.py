@@ -5,7 +5,7 @@ Created on Tue Sep 10 09:53:58 2024
 @author: petersen.jonas
 """
 
-from src.load_data import normalized_weekly_store_category_household_sales
+from src.utils import normalized_weekly_store_category_household_sales
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -53,7 +53,7 @@ def light_gbm_predict(
 
 seasonality_period = 52
 context_length = 30
-forecast_horizon = 52
+forecast_horizon = 26
 
 feature_columns = [str(x) for x in range(1,context_length)]+['time_sine']
 time_series_columns = [x for x in df.columns if 'HOUSEHOLD' in x and 'normalized' in x]

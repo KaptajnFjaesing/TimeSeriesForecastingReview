@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Sep 12 12:18:57 2024
+Created on Tue Sep 17 13:27:34 2024
 
 @author: petersen.jonas
 """
@@ -30,20 +30,20 @@ df_melted = training_data.melt(
     )
 mean_profile = np.array([df_melted['Value'][df_melted['week'] == week].values.mean() for week in range(1,seasonality_period+1)])
 
-# Generate scales for different time series
-projected_scales = []
-for col in unnormalized_column_group:
-    yearly_averages = training_data[['year']+[col]].groupby('year').mean()
-    mean_grad = training_data[['year']+[col]].groupby('year').mean().diff().dropna().mean().values[0]
-    projected_scales.append(yearly_averages.values[-1,0]+mean_grad)
-projected_scales = pd.DataFrame(data = projected_scales).T
-projected_scales.columns = unnormalized_column_group
+
+
+# %%
 
 # Pick the part of the static forecast "np.outer(projected_scales,mean_profile)" that is relevant
 model_forecasts = []
 for forecast_horizon in range(min_forecast_horizon,max_forecast_horizon+1):
+    training_data = df.iloc[:-forecast_horizon].reset_index()
+    
+    projected_scales = training_data[unnormalized_column_group].iloc[-10:].mean(axis = 0)
+    
+    
     week_indices_in_forecast = [int(week - 1) for week in df.iloc[-forecast_horizon:]['week'].values]
-    profile_subset = mean_profile[week_indices_in_forecast]
+    profile_subset = mean_profile[week_indices_in_forecast]/mean_profile[week_indices_in_forecast][0]
     model_forecasts.append([pd.Series(row) for row in np.outer(projected_scales,profile_subset)])
 
 #%%
@@ -58,5 +58,4 @@ stacked = compute_residuals(
          min_forecast_horizon = min_forecast_horizon
          )
 
-
-stacked.to_pickle('./data/results/stacked_forecasts_mean_profile.pkl')
+stacked.to_pickle('./data/results/stacked_forecasts_rolling_mean_profile.pkl')
