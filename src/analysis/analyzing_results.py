@@ -125,7 +125,7 @@ for j in range(len(list_of_models_forecasts)):
 plt.figure(figsize = (8,5))
 for j in range(len(list_of_models_forecasts)):
     plt.plot(MASE_averaged_over_time_series[j], color = colors[j], label = forecast_model_names[j])
-
+    
 # Customizing the plot style
 plt.grid(visible=True, which='both', linewidth=0.6, color='gray', alpha=0.7)
 plt.ylabel('Avg MASE over time series', fontsize=14)  # Flipped label
