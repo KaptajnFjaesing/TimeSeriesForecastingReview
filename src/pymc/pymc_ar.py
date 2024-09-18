@@ -34,7 +34,7 @@ with pm.Model() as model:
                        )
 with model:
     # Inference
-    trace = pm.sample(tune=50, draws=100, chains=1, return_inferencedata=False)
+    trace = pm.sample(nuts_sampler="numpyro",tune=50, draws=100, chains=1, return_inferencedata=False)
 
 #%%
 # Step 3: Make Predictions

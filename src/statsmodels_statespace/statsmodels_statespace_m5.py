@@ -5,7 +5,7 @@ Created on Wed Sep 11 10:53:07 2024
 @author: petersen.jonas
 """
 
-from src.load_data import normalized_weekly_store_category_household_sales
+from src.utils import normalized_weekly_store_category_household_sales
 import statsmodels.api as sm
 
 df = normalized_weekly_store_category_household_sales()
@@ -43,7 +43,7 @@ that represent the mean residual and the standard deviation of residuals.
 
 seasonality_period = 52
 harmonics = 10
-autoregressive = 2
+autoregressive = 10
 min_forecast_horizon = 26
 max_forecast_horizon = 52
 unnormalized_column_group = [x for x in df.columns if 'HOUSEHOLD' in x and 'normalized' not in x]

@@ -29,7 +29,7 @@ list_of_models_forecasts = [
     stacked_forecasts_deepar
     ]
 forecast_model_names = [
-    "SARIMA",
+    "SSM",
     "Exponential Smoothing",
     "Static Mean Profile",
     "Rolling Mean Profile",

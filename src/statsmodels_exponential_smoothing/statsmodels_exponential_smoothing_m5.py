@@ -53,8 +53,7 @@ unnormalized_column_group = [x for x in df.columns if 'HOUSEHOLD' in x and 'norm
 
 model_forecasts = []
 
-for forecast_horizon in tqdm(range(min_forecast_horizon,52+1)):
-
+for forecast_horizon in tqdm(range(min_forecast_horizon,max_forecast_horizon+1)):
     training_data = df.iloc[:-forecast_horizon].reset_index()
     y_train_min = training_data[unnormalized_column_group].min()
     y_train_max = training_data[unnormalized_column_group].max()
