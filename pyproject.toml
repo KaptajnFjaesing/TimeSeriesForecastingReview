@@ -1,0 +1,34 @@
+[tool.poetry]
+name = "TimeSeriesForecastingReview"
+version = "0.1.0"
+description = ""
+authors = ["Jonas Petersen, Anders Runge Walther"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "3.11.8"
+pymc = "^5.10.4"
+numpy = "^1.26.4"
+pandas = "^2.2.1"
+spyder-kernels = "2.5"
+matplotlib = "^3.8.3"
+tqdm = "^4.66.2"
+filterpy = "^1.4.5"
+lightgbm = "^4.5.0"
+statsmodels = "^0.14.2"
+pymc-experimental = "^0.1.2"
+jax = "^0.4.33"
+jaxlib = "^0.4.33"
+numpyro = "^0.15.3"
+sorcerer = {git = "https://github.com/KaptajnFjaesing/sorcerer.git"}
+
+
+[tool.poetry.group.dev.dependencies]
+build = "^1.2.2"
+setuptools = "^75.1.0"
+wheel = "^0.44.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

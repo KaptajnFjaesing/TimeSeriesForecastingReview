@@ -10,8 +10,7 @@ import numpy as np
 import datetime
 import statsmodels.api as sm
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
-
-
+from sorcerer.sorcerer_model import SorcererModel
 
 
 def compute_residuals(model_forecasts, test_data, min_forecast_horizon):
@@ -274,3 +273,42 @@ def generate_exponential_smoothing_stacked_forecast(
              min_forecast_horizon = forecast_horizon
              ).to_pickle('./data/results/stacked_forecasts_exponential_smoothing.pkl')
     print("generate_exponential_smoothing_stacked_forecast completed")
+
+def generate_sorcerer_stacked_forecast(
+        df: pd.DataFrame,
+        forecast_horizon: int,
+        simulated_number_of_forecasts: int,
+        sampler_config: dict,
+        model_config: dict
+        ):
+
+    time_series_columns = [x for x in df.columns if ('HOUSEHOLD' in x and 'normalized' not in x) or ('date' in x)]
+    unnormalized_column_group = [x for x in df.columns if 'HOUSEHOLD' in x and 'normalized' not in x]
+    df_time_series = df[time_series_columns]
+    model_name = "SorcererModel"
+    version = "v0.3"
+    if sampler_config['sampler'] == "MAP":
+        model_config['precision_target_distribution_prior_alpha'] = 1000
+        model_config['precision_target_distribution_prior_beta'] = 0.01
+    model_forecasts_sorcerer = []
+    for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts)):
+        training_data = df_time_series.iloc[:-fh]
+        test_data = df_time_series.iloc[-fh:]
+        y_train_min = training_data[unnormalized_column_group].min()
+        y_train_max = training_data[unnormalized_column_group].max()
+        sorcerer = SorcererModel(
+            model_config = model_config,
+            model_name = model_name,
+            sampler_config = sampler_config,
+            version = version
+            )
+        sorcerer.fit(training_data = training_data)
+        (preds_out_of_sample, model_preds) = sorcerer.sample_posterior_predictive(test_data = test_data)
+        model_forecasts_sorcerer.append([pd.Series((model_preds["target_distribution"].mean(("chain", "draw")).T)[i].values*(y_train_max[y_train_max.index[i]]-y_train_min[y_train_min.index[i]])+y_train_min[y_train_min.index[i]]) for i in range(len(unnormalized_column_group))])
+    test_data = df.iloc[-(forecast_horizon+simulated_number_of_forecasts):].reset_index(drop = True)
+    compute_residuals(
+             model_forecasts = model_forecasts_sorcerer,
+             test_data = test_data[unnormalized_column_group],
+             min_forecast_horizon = forecast_horizon
+             ).to_pickle(f"./data/results/stacked_forecasts_sorcerer_{sampler_config['sampler']}.pkl")
+    print("generate_sorcerer_stacked_forecast completed")
