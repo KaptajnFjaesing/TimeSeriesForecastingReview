@@ -59,4 +59,4 @@ stacked = compute_residuals(
          )
 
 
-stacked.to_pickle('./data/results/stacked_forecasts_static_mean_profile.pkl')
+stacked.to_pickle('./data/results/stacked_forecasts_static_mean_profile_new_data_split.pkl')

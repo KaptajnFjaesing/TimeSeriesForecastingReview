@@ -5,43 +5,25 @@ Created on Wed Sep 11 13:25:03 2024
 @author: petersen.jonas
 """
 import pandas as pd
+from tqdm import tqdm
+import numpy as np
 import datetime
+import statsmodels.api as sm
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+
+
 
 def compute_residuals(model_forecasts, test_data, min_forecast_horizon):
-    """
-    Compute the forecast error metrics for multiple models.
-
-    Parameters:
-    - model_forecasts: List of forecasted values from different models. Each element is a list of forecasts for each column.
-    - test_data: DataFrame containing the actual values for the forecast period.
-    - min_forecast_horizon: The minimum forecast horizon to consider for each model.
-
-    Returns:
-    - List of DataFrames, each containing the forecast errors for a model.
-    """
     metrics_list = []
-
-    # Iterate over each model's forecasts
     for forecasts in model_forecasts:
-        # Initialize an empty DataFrame to store forecast errors for the current model
         errors_df = pd.DataFrame(columns=test_data.columns)
-        
-        # Calculate forecast errors for each column
         for i, column in enumerate(test_data.columns):
-            # Get the forecast horizon for the current column
             forecast_horizon = len(forecasts[i].values)
-            
-            # Calculate forecast errors: actual values minus forecasted values
             errors_df[column] = test_data[column].values[-forecast_horizon:] - forecasts[i].values
-        
-        # Keep only the first `min_forecast_horizon` rows and reset index
-        truncated_errors_df = errors_df.iloc[:min_forecast_horizon].reset_index(drop=True)
-        
-        # Append the DataFrame of errors for the current model to the list
+        truncated_errors_df = errors_df.iloc[:min_forecast_horizon].reset_index(drop=True)        
         metrics_list.append(truncated_errors_df)
-    stacked = pd.concat(metrics_list, axis=0)
-    
-    return stacked
+    return pd.concat(metrics_list, axis=0)
 
 def load_passengers_data() -> pd.DataFrame:
     return pd.read_csv('./data/passengers.csv', parse_dates=['Date'])
@@ -77,7 +59,7 @@ def load_m5_weekly_store_category_sales_data():
                                    validate="1:1").set_index('date')
     # Ensure that the index of your DataFrame is in datetime format
     store_category_sales.index = pd.to_datetime(store_category_sales.index)
-    weekly_store_category_sales = store_category_sales[store_category_sales.index > threshold_date].resample('W').sum()
+    weekly_store_category_sales = store_category_sales[store_category_sales.index > threshold_date].resample('W-MON', closed = "left", label = "left").sum()
     
     food_columns = [x for x in weekly_store_category_sales.columns if 'FOOD' in x]
     household_columns = [x for x in weekly_store_category_sales.columns if 'HOUSEHOLD' in x]
@@ -98,19 +80,197 @@ def normalized_weekly_store_category_household_sales() -> pd.DataFrame:
     
     _,weekly_store_category_household_sales,_ = load_m5_weekly_store_category_sales_data()
     
-    df_temp = weekly_store_category_household_sales.copy().reset_index()
+    df_temp = weekly_store_category_household_sales.copy().reset_index().iloc[1:]
     df_temp['week'] = df_temp['date'].dt.strftime('%U').astype(int)
     df_temp['year'] = df_temp['date'].dt.strftime('%Y').astype(int)
 
-    condition = (df_temp['year'] > df_temp['year'].min()) & (df_temp['year'] < df_temp['year'].max())
-    df_temp_filtered = df_temp[condition]
     cols1 = [x for x in df_temp.columns if ('HOUSEHOLD' in x or 'year' in x) ]
-    yearly_means = df_temp_filtered[cols1].groupby('year').mean()
-    df_temp_filtered = df_temp_filtered.merge(yearly_means,  on='year', how = 'left', suffixes=('', '_yearly_mean'))
+    yearly_means = df_temp[cols1].groupby('year').mean()
+    df_temp_merged = df_temp.merge(yearly_means,  on='year', how = 'left', suffixes=('', '_yearly_mean'))
     for item in [x for x in df_temp.columns if 'HOUSEHOLD' in x ]:
-        df_temp_filtered[item + '_normalized'] = df_temp_filtered[item] / df_temp_filtered[item + '_yearly_mean']
+        df_temp_merged[item + '_normalized'] = df_temp_merged[item] / df_temp_merged[item + '_yearly_mean']
 
-    return df_temp_filtered[[x for x in df_temp_filtered.columns if (('HOUSEHOLD' in x or 'week' in x or 'year' in x or 'date' in x) and ('yearly' not in x))]]
+    return df_temp_merged[[x for x in df_temp_merged.columns if (('HOUSEHOLD' in x or 'week' in x or 'year' in x or 'date' in x) and ('yearly' not in x))]]
 
 
+def generate_mean_profile(df, seasonality_period, normalized_column_group):
+    condition = df['date'].dt.year < df['date'].dt.year.max()
+    training_data = df[condition].reset_index()
+    df_melted = training_data.melt(
+        id_vars='week',
+        value_vars= normalized_column_group,
+        var_name='Variable',
+        value_name='Value'
+        )
+    return np.array([df_melted['Value'][df_melted['week'] == week].values.mean() for week in range(1,seasonality_period+1)])
 
+
+def generate_mean_profil_stacked_forecast(
+        df: pd.DataFrame,
+        forecast_horizon: int,
+        simulated_number_of_forecasts: int,
+        seasonality_period: int = 52,
+        MA_window: int = 10
+        ):
+    
+    normalized_column_group = [x for x in df.columns if '_normalized' in x ]
+    unnormalized_column_group = [x for x in df.columns if 'HOUSEHOLD' in x and 'normalized' not in x]
+ 
+    model_forecasts_rolling = []
+    model_forecasts_static = []
+    for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts)):
+        training_data = df.iloc[:-fh].reset_index()
+        mean_profile = generate_mean_profile(
+            df = training_data,
+            seasonality_period = seasonality_period,
+            normalized_column_group = normalized_column_group
+            )
+        
+        projected_scales = training_data[unnormalized_column_group].iloc[-MA_window:].mean(axis = 0)
+        week_indices_in_forecast = [int(week - 1) for week in df.iloc[-fh:]['week'].values]
+        profile_subset = mean_profile[week_indices_in_forecast]/mean_profile[week_indices_in_forecast][0]
+        model_forecasts_rolling.append([pd.Series(row) for row in np.outer(projected_scales,profile_subset)])
+        
+        
+        projected_scales = []
+        for col in unnormalized_column_group:
+            yearly_averages = training_data[['year']+[col]].groupby('year').mean()
+            mean_grad = training_data[['year']+[col]].groupby('year').mean().diff().dropna().mean().values[0]
+            projected_scales.append(yearly_averages.values[-1,0]+mean_grad)
+        projected_scales = pd.DataFrame(data = projected_scales).T
+        projected_scales.columns = unnormalized_column_group
+        
+        profile_subset = mean_profile[week_indices_in_forecast]
+        model_forecasts_static.append([pd.Series(row) for row in np.outer(projected_scales,profile_subset)])
+    
+    test_data = df.iloc[-(forecast_horizon+simulated_number_of_forecasts):].reset_index(drop = True)
+    
+    compute_residuals(
+             model_forecasts = model_forecasts_rolling,
+             test_data = test_data[unnormalized_column_group],
+             min_forecast_horizon = forecast_horizon
+             ).to_pickle('./data/results/stacked_forecasts_rolling_mean.pkl')    
+    
+    compute_residuals(
+             model_forecasts = model_forecasts_static,
+             test_data = test_data[unnormalized_column_group],
+             min_forecast_horizon = forecast_horizon
+             ).to_pickle('./data/results/stacked_forecasts_static_mean.pkl')
+    print("generate_mean_profil_stacked_forecast completed")
+
+
+def generate_SSM_stacked_forecast(
+        df: pd.DataFrame,
+        forecast_horizon: int,
+        simulated_number_of_forecasts: int,
+        autoregressive: int = 2,
+        seasonality_period: int = 52,
+        harmonics: int = 10,
+        level: bool = True,
+        trend: bool = True,
+        stochastic_level: bool = True, 
+        stochastic_trend: bool = True,
+        irregular: bool = True
+        ):
+
+    unnormalized_column_group = [x for x in df.columns if 'HOUSEHOLD' in x and 'normalized' not in x]
+    
+    model_forecasts = []
+    for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts)):
+        training_data = df.iloc[:-fh].reset_index()
+        y_train_min = training_data[unnormalized_column_group].min()
+        y_train_max = training_data[unnormalized_column_group].max()
+        y_train = (training_data[unnormalized_column_group]-y_train_min)/(y_train_max-y_train_min)
+        model_denormalized = []
+        for i in range(len(y_train.columns)):
+            struobs = sm.tsa.UnobservedComponents(y_train[y_train.columns[i]],
+                                                  level=level,
+                                                  trend=trend,
+                                                  autoregressive=autoregressive,
+                                                  stochastic_level=stochastic_level,
+                                                  stochastic_trend=stochastic_trend,
+                                                  freq_seasonal=[{'period':seasonality_period,
+                                                                  'harmonics':harmonics}],
+                                                  irregular = irregular
+                                                  )
+            mlefit = struobs.fit(disp=0)
+            model_results = mlefit.get_forecast(fh).summary_frame(alpha=0.05)
+            model_denormalized.append(model_results['mean']*(y_train_max[y_train_max.index[i]]-y_train_min[y_train_min.index[i]])+y_train_min[y_train_min.index[i]])
+        model_forecasts.append(model_denormalized)
+    
+    test_data = df.iloc[-(forecast_horizon+simulated_number_of_forecasts):].reset_index(drop = True)
+        
+    compute_residuals(
+             model_forecasts = model_forecasts,
+             test_data = test_data[unnormalized_column_group],
+             min_forecast_horizon = forecast_horizon
+             ).to_pickle('./data/results/stacked_forecasts_statespace.pkl')
+    print("generate_SSM_stacked_forecast completed")
+
+
+def generate_abs_mean_gradient_training_data(
+        df: pd.DataFrame,
+        forecast_horizon: int,
+        simulated_number_of_forecasts: int
+        ):
+    unnormalized_column_group = [x for x in df.columns if 'HOUSEHOLD' in x and 'normalized' not in x]
+    df.iloc[:-(forecast_horizon+simulated_number_of_forecasts)].reset_index(drop = True)[unnormalized_column_group].diff().dropna().abs().mean(axis = 0).to_pickle('./data/results/abs_mean_gradient_training_data.pkl')
+    print("generate_abs_mean_gradient_training_data completed")
+
+
+def exponential_smoothing(
+        df: pd.DataFrame,
+        time_series_column: str,
+        seasonality_period: int,
+        forecast_periods: int
+        ):
+    df_temp = df.copy()
+    df_temp.set_index('date', inplace=True)
+    time_series = df_temp[time_series_column]
+    model = ExponentialSmoothing(
+        time_series, 
+        seasonal='add',  # Use 'add' for additive seasonality or 'mul' for multiplicative seasonality
+        trend='add',      # Use 'add' for additive trend or 'mul' for multiplicative trend
+        seasonal_periods=seasonality_period,  # Adjust for the frequency of your seasonal period (e.g., 12 for monthly data)
+        freq=time_series.index.inferred_freq
+    )
+    fit_model = model.fit()
+    return fit_model.forecast(steps=forecast_periods)
+
+def generate_exponential_smoothing_stacked_forecast(
+        df: pd.DataFrame,
+        forecast_horizon: int,
+        simulated_number_of_forecasts: int,
+        seasonality_period: int = 52,
+        ):
+    
+    unnormalized_column_group = [x for x in df.columns if 'HOUSEHOLD' in x and 'normalized' not in x]
+    model_forecasts = []
+    for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts)):
+        training_data = df.iloc[:-fh].reset_index()
+        y_train_min = training_data[unnormalized_column_group].min()
+        y_train_max = training_data[unnormalized_column_group].max()
+        
+        y_train = (training_data[unnormalized_column_group]-y_train_min)/(y_train_max-y_train_min)
+        y_train['date'] = training_data['date']
+        model_denormalized = []
+        time_series_columns = [x for x in y_train.columns if not 'date' in x]
+        for i in range(len(time_series_columns)):
+            model_results = exponential_smoothing(
+                    df = y_train,
+                    time_series_column = time_series_columns[i],
+                    seasonality_period = seasonality_period,
+                    forecast_periods = fh
+                    )
+            model_denormalized.append(model_results*(y_train_max[y_train_max.index[i]]-y_train_min[y_train_min.index[i]])+y_train_min[y_train_min.index[i]])
+
+        model_forecasts.append(model_denormalized)
+    
+    test_data = df.iloc[-(forecast_horizon+simulated_number_of_forecasts):].reset_index(drop = True)
+
+    compute_residuals(
+             model_forecasts = model_forecasts,
+             test_data = test_data[unnormalized_column_group],
+             min_forecast_horizon = forecast_horizon
+             ).to_pickle('./data/results/stacked_forecasts_exponential_smoothing.pkl')
+    print("generate_exponential_smoothing_stacked_forecast completed")
