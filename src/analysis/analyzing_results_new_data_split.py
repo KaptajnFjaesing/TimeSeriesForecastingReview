@@ -13,10 +13,9 @@ stacked_forecasts_static_mean_profile = pd.read_pickle('./data/results/stacked_f
 stacked_forecasts_rolling_mean_profile = pd.read_pickle('./data/results/stacked_forecasts_rolling_mean.pkl')
 stacked_forecasts_exponential_smoothing_profile = pd.read_pickle('./data/results/stacked_forecasts_exponential_smoothing.pkl')
 stacked_forecasts_statespace_profile = pd.read_pickle('./data/results/stacked_forecasts_statespace.pkl')
+stacked_forecasts_sorcerer_MAP = pd.read_pickle('./data/results/stacked_forecasts_sorcerer_MAP.pkl')
 
 #stacked_forecasts_sorcerer_NUTS = pd.read_pickle('./data/results/stacked_forecasts_sorcerer_NUTS_new_data_split.pkl')
-#stacked_forecasts_sorcerer_MAP = pd.read_pickle('./data/results/stacked_forecasts_sorcerer_MAP_new_data_split.pkl')
-#stacked_forecasts_sorcerer_MAP = pd.read_pickle('./data/results/stacked_forecasts_sorcerer_MAP_new_data_split.pkl')
 
 abs_mean_gradient_training_data = pd.read_pickle('./data/results/abs_mean_gradient_training_data.pkl')
 
@@ -25,19 +24,22 @@ list_of_models_forecasts = [
     stacked_forecasts_static_mean_profile,    
     stacked_forecasts_rolling_mean_profile,
     stacked_forecasts_exponential_smoothing_profile,
-    stacked_forecasts_statespace_profile
+    stacked_forecasts_statespace_profile,
+    stacked_forecasts_sorcerer_MAP
     ]
 forecast_model_names = [
     "Static Mean Profile",
     "Rolling Mean Profile",
     "Exponential Smoothing",
-    "SSM"
+    "SSM",
+    "Sorcerer v0.3 (MAP)"
     ]
 colors = [
     'tab:blue',
     'tab:red',
     'tab:green',
-    'tab:cyan'
+    'tab:cyan',
+    'tab:brown'
     ]
 
 

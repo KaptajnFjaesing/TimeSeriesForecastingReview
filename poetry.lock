@@ -2012,7 +2012,7 @@ typing-extensions = "^4.7.1"
 type = "git"
 url = "https://github.com/KaptajnFjaesing/sorcerer.git"
 reference = "HEAD"
-resolved_reference = "fb8a7e4d60acdcbb34d46be661dc5be1ee5cad44"
+resolved_reference = "068cb3c3423bbb106fd8d899f83e90230ba20511"
 
 [[package]]
 name = "spyder-kernels"

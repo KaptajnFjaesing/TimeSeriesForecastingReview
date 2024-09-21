@@ -12,6 +12,10 @@ import statsmodels.api as sm
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from sorcerer.sorcerer_model import SorcererModel
 
+from contextlib import redirect_stdout, redirect_stderr
+from io import StringIO
+
+
 
 def compute_residuals(model_forecasts, test_data, min_forecast_horizon):
     metrics_list = []
@@ -39,7 +43,6 @@ def load_m5_data() -> tuple[pd.DataFrame]:
         submission_file
         )
 
-
 def load_m5_weekly_store_category_sales_data():
     
     (sell_prices_df, train_sales_df, calendar_df, submission_file) = load_m5_data()
@@ -58,7 +61,7 @@ def load_m5_weekly_store_category_sales_data():
                                    validate="1:1").set_index('date')
     # Ensure that the index of your DataFrame is in datetime format
     store_category_sales.index = pd.to_datetime(store_category_sales.index)
-    weekly_store_category_sales = store_category_sales[store_category_sales.index > threshold_date].resample('W-MON', closed = "left", label = "left").sum()
+    weekly_store_category_sales = store_category_sales[store_category_sales.index > threshold_date].resample('W-MON', closed = "left", label = "left").sum().iloc[1:]
     
     food_columns = [x for x in weekly_store_category_sales.columns if 'FOOD' in x]
     household_columns = [x for x in weekly_store_category_sales.columns if 'HOUSEHOLD' in x]
@@ -69,39 +72,51 @@ def load_m5_weekly_store_category_sales_data():
     weekly_store_category_hobbies_sales = weekly_store_category_sales[hobbies_columns]
     
     return (
-        weekly_store_category_food_sales,
-        weekly_store_category_household_sales,
-        weekly_store_category_hobbies_sales
+        weekly_store_category_food_sales.reset_index(),
+        weekly_store_category_household_sales.reset_index(),
+        weekly_store_category_hobbies_sales.reset_index()
         )
 
 
-def normalized_weekly_store_category_household_sales() -> pd.DataFrame:
-    
-    _,weekly_store_category_household_sales,_ = load_m5_weekly_store_category_sales_data()
-    
-    df_temp = weekly_store_category_household_sales.copy().reset_index().iloc[1:]
-    df_temp['week'] = df_temp['date'].dt.strftime('%U').astype(int)
-    df_temp['year'] = df_temp['date'].dt.strftime('%Y').astype(int)
-
-    cols1 = [x for x in df_temp.columns if ('HOUSEHOLD' in x or 'year' in x) ]
-    yearly_means = df_temp[cols1].groupby('year').mean()
-    df_temp_merged = df_temp.merge(yearly_means,  on='year', how = 'left', suffixes=('', '_yearly_mean'))
+def normalized_weekly_store_category_household_sales(df: pd.DataFrame) -> pd.DataFrame:
+    df_temp = df.copy(deep=True)
+    df_temp['week'] = df['date'].dt.strftime('%U').astype(int)
+    df_temp['year'] = df['date'].dt.strftime('%Y').astype(int)
+    df_temp = df_temp[df_temp['week'] != 53]
+    weeks_per_year = df_temp.groupby('year').week.nunique()
+    years_with_52_weeks = weeks_per_year[weeks_per_year == 52].index
+    df_full_years = df_temp[df_temp['year'].isin(years_with_52_weeks)]
+    yearly_means = df_full_years[[x for x in df_full_years.columns if ('HOUSEHOLD' in x or 'year' in x) ]].groupby('year').mean().reset_index()
+    df_full_years_merged = df_full_years.merge(yearly_means,  on='year', how = 'left', suffixes=('', '_yearly_mean'))
     for item in [x for x in df_temp.columns if 'HOUSEHOLD' in x ]:
-        df_temp_merged[item + '_normalized'] = df_temp_merged[item] / df_temp_merged[item + '_yearly_mean']
+        df_full_years_merged[item + '_normalized'] = df_full_years_merged[item] / df_full_years_merged[item + '_yearly_mean']
+    df_normalized = df_full_years_merged[[x for x in df_full_years_merged.columns if ('normalized' in x or x == 'week' or x == 'year')]]
+    return df_normalized
 
-    return df_temp_merged[[x for x in df_temp_merged.columns if (('HOUSEHOLD' in x or 'week' in x or 'year' in x or 'date' in x) and ('yearly' not in x))]]
 
+def generate_mean_profile(df, seasonality_period): 
+    df_temp = df.copy(deep=True)
+    df_temp['week'] = df['date'].dt.strftime('%U').astype(int)
+    df_temp['year'] = df['date'].dt.strftime('%Y').astype(int)
 
-def generate_mean_profile(df, seasonality_period, normalized_column_group):
-    condition = df['date'].dt.year < df['date'].dt.year.max()
-    training_data = df[condition].reset_index()
-    df_melted = training_data.melt(
+    df_temp = df_temp[df_temp['week'] != 53]
+    weeks_per_year = df_temp.groupby('year').week.nunique()
+    years_with_52_weeks = weeks_per_year[weeks_per_year == 52].index
+    df_full_years = df_temp[df_temp['year'].isin(years_with_52_weeks)]
+    yearly_means = df_full_years[[x for x in df_full_years.columns if ('HOUSEHOLD' in x or 'year' in x) ]].groupby('year').mean().reset_index()
+    df_full_years_merged = df_full_years.merge(yearly_means,  on='year', how = 'left', suffixes=('', '_yearly_mean'))
+    for item in [x for x in df_temp.columns if 'HOUSEHOLD' in x ]:
+        df_full_years_merged[item + '_normalized'] = df_full_years_merged[item] / df_full_years_merged[item + '_yearly_mean']
+    df_normalized = df_full_years_merged[[x for x in df_full_years_merged.columns if ('normalized' in x or x == 'week' or x == 'year')]]
+    normalized_column_group = [x for x in df_normalized.columns if 'normalized' in x]
+    df_melted = df_normalized.melt(
         id_vars='week',
         value_vars= normalized_column_group,
         var_name='Variable',
         value_name='Value'
         )
-    return np.array([df_melted['Value'][df_melted['week'] == week].values.mean() for week in range(1,seasonality_period+1)])
+    seasonality_profile = np.array([df_melted['Value'][df_melted['week'] == week].values.mean() for week in range(1,int(seasonality_period)+1)])
+    return seasonality_profile, yearly_means
 
 
 def generate_mean_profil_stacked_forecast(
@@ -112,47 +127,38 @@ def generate_mean_profil_stacked_forecast(
         MA_window: int = 10
         ):
     
-    normalized_column_group = [x for x in df.columns if '_normalized' in x ]
-    unnormalized_column_group = [x for x in df.columns if 'HOUSEHOLD' in x and 'normalized' not in x]
- 
     model_forecasts_rolling = []
     model_forecasts_static = []
+    value_columns = [x for x in df if x != 'date']
+    df_temp = df.copy(deep=True)
+    df_temp['week'] = df['date'].dt.strftime('%U').astype(int)
+    df_temp['year'] = df['date'].dt.strftime('%Y').astype(int)
     for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts)):
-        training_data = df.iloc[:-fh].reset_index()
-        mean_profile = generate_mean_profile(
+        training_data = df_temp.iloc[:-fh]
+        mean_profile, yearly_means = generate_mean_profile(
             df = training_data,
-            seasonality_period = seasonality_period,
-            normalized_column_group = normalized_column_group
+            seasonality_period = seasonality_period
             )
+        #static forecast
+        week_indices_in_forecast = [int(week - 1) for week in df_temp.iloc[-fh:]['week'].values]
+        projected_scales_static = yearly_means[value_columns].diff().dropna().mean(axis = 0)+yearly_means[value_columns].iloc[-1]
+        model_forecasts_static.append([pd.Series(row) for row in np.outer(projected_scales_static,mean_profile[week_indices_in_forecast])])
+
+        # rolling forecast
+        projected_scales_rolling = training_data[value_columns].iloc[-MA_window:].mean(axis = 0)
+        model_forecasts_rolling.append([pd.Series(row) for row in np.outer(projected_scales_rolling,(mean_profile[week_indices_in_forecast]/mean_profile[week_indices_in_forecast][0]))])
         
-        projected_scales = training_data[unnormalized_column_group].iloc[-MA_window:].mean(axis = 0)
-        week_indices_in_forecast = [int(week - 1) for week in df.iloc[-fh:]['week'].values]
-        profile_subset = mean_profile[week_indices_in_forecast]/mean_profile[week_indices_in_forecast][0]
-        model_forecasts_rolling.append([pd.Series(row) for row in np.outer(projected_scales,profile_subset)])
-        
-        
-        projected_scales = []
-        for col in unnormalized_column_group:
-            yearly_averages = training_data[['year']+[col]].groupby('year').mean()
-            mean_grad = training_data[['year']+[col]].groupby('year').mean().diff().dropna().mean().values[0]
-            projected_scales.append(yearly_averages.values[-1,0]+mean_grad)
-        projected_scales = pd.DataFrame(data = projected_scales).T
-        projected_scales.columns = unnormalized_column_group
-        
-        profile_subset = mean_profile[week_indices_in_forecast]
-        model_forecasts_static.append([pd.Series(row) for row in np.outer(projected_scales,profile_subset)])
-    
+    # Export data
     test_data = df.iloc[-(forecast_horizon+simulated_number_of_forecasts):].reset_index(drop = True)
-    
     compute_residuals(
              model_forecasts = model_forecasts_rolling,
-             test_data = test_data[unnormalized_column_group],
+             test_data = test_data[value_columns],
              min_forecast_horizon = forecast_horizon
              ).to_pickle('./data/results/stacked_forecasts_rolling_mean.pkl')    
     
     compute_residuals(
              model_forecasts = model_forecasts_static,
-             test_data = test_data[unnormalized_column_group],
+             test_data = test_data[value_columns],
              min_forecast_horizon = forecast_horizon
              ).to_pickle('./data/results/stacked_forecasts_static_mean.pkl')
     print("generate_mean_profil_stacked_forecast completed")
@@ -274,6 +280,14 @@ def generate_exponential_smoothing_stacked_forecast(
              ).to_pickle('./data/results/stacked_forecasts_exponential_smoothing.pkl')
     print("generate_exponential_smoothing_stacked_forecast completed")
 
+
+# Wrapper to suppress output
+def suppress_output(func, *args, **kwargs):
+    f = StringIO()
+    with redirect_stdout(f), redirect_stderr(f):
+        result = func(*args, **kwargs)
+    return result
+
 def generate_sorcerer_stacked_forecast(
         df: pd.DataFrame,
         forecast_horizon: int,
@@ -302,8 +316,8 @@ def generate_sorcerer_stacked_forecast(
             sampler_config = sampler_config,
             version = version
             )
-        sorcerer.fit(training_data = training_data)
-        (preds_out_of_sample, model_preds) = sorcerer.sample_posterior_predictive(test_data = test_data)
+        suppress_output(sorcerer.fit, training_data=training_data)
+        (preds_out_of_sample, model_preds) = suppress_output(sorcerer.sample_posterior_predictive, test_data=test_data)
         model_forecasts_sorcerer.append([pd.Series((model_preds["target_distribution"].mean(("chain", "draw")).T)[i].values*(y_train_max[y_train_max.index[i]]-y_train_min[y_train_min.index[i]])+y_train_min[y_train_min.index[i]]) for i in range(len(unnormalized_column_group))])
     test_data = df.iloc[-(forecast_horizon+simulated_number_of_forecasts):].reset_index(drop = True)
     compute_residuals(
