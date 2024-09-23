@@ -1,20 +1,20 @@
-# -*- coding: utf-8 -*-
 """
 Created on Wed Sep 11 13:25:03 2024
 
-@author: petersen.jonas
+@author: Jonas Petersen
 """
 import pandas as pd
 from tqdm import tqdm
 import numpy as np
 import datetime
 import statsmodels.api as sm
+import lightgbm as lgbm
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 from sorcerer.sorcerer_model import SorcererModel
 
 from contextlib import redirect_stdout, redirect_stderr
 from io import StringIO
-
 
 
 def compute_residuals(model_forecasts, test_data, min_forecast_horizon):
@@ -236,7 +236,7 @@ def exponential_smoothing(
         time_series, 
         seasonal='add',  # Use 'add' for additive seasonality or 'mul' for multiplicative seasonality
         trend='add',      # Use 'add' for additive trend or 'mul' for multiplicative trend
-        seasonal_periods=seasonality_period,  # Adjust for the frequency of your seasonal period (e.g., 12 for monthly data)
+        seasonal_periods=int(seasonality_period),  # Adjust for the frequency of your seasonal period (e.g., 12 for monthly data)
         freq=time_series.index.inferred_freq
     )
     fit_model = model.fit()
@@ -281,7 +281,8 @@ def generate_exponential_smoothing_stacked_forecast(
     print("generate_exponential_smoothing_stacked_forecast completed")
 
 
-# Wrapper to suppress output
+# Sorcerer functions
+
 def suppress_output(func, *args, **kwargs):
     f = StringIO()
     with redirect_stdout(f), redirect_stderr(f):
@@ -326,3 +327,170 @@ def generate_sorcerer_stacked_forecast(
              min_forecast_horizon = forecast_horizon
              ).to_pickle(f"./data/results/stacked_forecasts_sorcerer_{sampler_config['sampler']}.pkl")
     print("generate_sorcerer_stacked_forecast completed")
+
+# LIGHT GBM functions
+
+def feature_generation(
+        df: pd.DataFrame,
+        time_series_column: str,
+        context_length: int,
+        seasonality_period: float):
+    df_features = df.copy()
+    df_features[time_series_column+'_log'] = np.log(df_features[time_series_column]) # Log-scale
+    df_0 = df_features.iloc[0,:] # save first datapoint
+    df_features[time_series_column+'_log_diff'] = df_features[time_series_column+'_log'].diff() # gradient
+    for i in range(1,context_length):
+        df_features[f'{i}'] = df_features[time_series_column+'_log_diff'].shift(i) # Fill lagged values as features    
+    df_features.dropna(inplace=True)
+    df_features['time_sine'] = np.sin(2*np.pi*df_features.index/seasonality_period) # Create a sine time-feature with the period set to 12 months
+    
+    return df_0, df_features
+
+def light_gbm_predict(
+        x_test,
+        forecast_horizon,
+        context_length,
+        seasonality_period,
+        model
+        ):
+
+    predictions = np.zeros(forecast_horizon)
+    context = x_test.iloc[0].values.reshape(1,-1)
+    test_start_index_plus_one = x_test.index[0]+1
+
+    for i in range(forecast_horizon):
+        predictions[i] = model.predict(context)[0]
+        context[0,1:context_length] = context[0,0:context_length-1]
+        context[0,0] = predictions[i]
+        context[0,-1] = np.sin(2*np.pi*(test_start_index_plus_one+i)/seasonality_period) # this is for next iteration
+    return predictions
+
+def light_gbm_forecast(
+        x_train:pd.DataFrame,
+        y_train: pd.DataFrame,
+        x_test: pd.DataFrame,
+        time_series_column: str,
+        forecast_horizon: int,
+        context_length: int,
+        seasonality_period: float,
+        model_config: dict
+        ):
+    
+    train_dataset = lgbm.Dataset(
+        data = x_train.values,
+        label = y_train.values
+        )
+    model = lgbm.train(
+        params = model_config,
+        train_set = train_dataset, 
+        num_boost_round = 2000
+        )
+
+    predictions = light_gbm_predict(
+        x_test = x_test,
+        forecast_horizon = forecast_horizon,
+        context_length = context_length,
+        seasonality_period = seasonality_period,
+        model = model
+        )
+    return predictions
+
+
+def generate_light_gbm_stacked_forecast(
+        df: pd.DataFrame,
+        simulated_number_of_forecasts: int,
+        forecast_horizon: int,
+        context_length: int,
+        seasonality_period: float,
+        model_config: dict
+        ):
+    time_series_columns = [x for x in df.columns if not 'date' in x]
+    feature_columns = [str(x) for x in range(1,context_length)]+['time_sine']
+    model_forecasts = []
+    for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts)):
+        model_denormalized = []
+        for i in range(len(time_series_columns)):
+            df_0, df_features = feature_generation(
+                df = df,
+                time_series_column = time_series_columns[i],
+                context_length = context_length,
+                seasonality_period = seasonality_period
+                )
+            x_train = df_features[feature_columns].iloc[:-fh]
+            y_train = df_features[time_series_columns[i]+'_log_diff'].iloc[:-fh]
+            x_test = df_features[feature_columns].iloc[-fh:]
+            baseline = df_features[time_series_columns[i]][x_test.index-1].iloc[0]
+            model_results = light_gbm_forecast(
+                    x_train = x_train,
+                    y_train = y_train,
+                    x_test = x_test,
+                    time_series_column = time_series_columns[i],
+                    forecast_horizon = forecast_horizon,
+                    context_length = context_length,
+                    seasonality_period = seasonality_period,
+                    model_config = model_config
+                    )
+            model_denormalized.append(pd.Series(baseline*np.exp(np.cumsum(model_results))))
+        model_forecasts.append(model_denormalized)
+    test_data = df.iloc[-(forecast_horizon+simulated_number_of_forecasts):].reset_index(drop = True)
+    compute_residuals(
+             model_forecasts = model_forecasts,
+             test_data = test_data[time_series_columns],
+             min_forecast_horizon = forecast_horizon
+             ).to_pickle('./data/results/stacked_forecasts_light_gbm.pkl')
+    print("generate_light_gbm_stacked_forecast completed")
+
+
+
+def train_and_forecast(
+        training_data,
+        testing_data,
+        column_name,
+        model,
+        cv_split,
+        parameters
+        ):
+    X_train = training_data[["day_of_year", "month", "quarter", "year"]]
+    y_train = training_data[column_name]
+    
+    X_test = testing_data[["day_of_year", "month", "quarter", "year"]]
+    
+    # Perform grid search cross-validation
+    grid_search = GridSearchCV(estimator=model, cv=cv_split, param_grid=parameters)
+    grid_search.fit(X_train, y_train)
+    
+    # Predict for the test set
+    return grid_search.predict(X_test)
+
+def generate_light_gbm_w_sklearn_stacked_forecast(
+        df: pd.DataFrame,
+        simulated_number_of_forecasts: int,
+        forecast_horizon: int,
+        model_config: dict
+        ):
+    time_series_columns = [x for x in df.columns if not 'date' in x]
+    df_time_series = df.copy(deep = True)
+    df_time_series["day_of_year"] = df_time_series["date"].dt.dayofyear
+    df_time_series["month"] = df_time_series["date"].dt.month
+    df_time_series["quarter"] = df_time_series["date"].dt.quarter
+    df_time_series["year"] = df_time_series["date"].dt.year
+    model_forecasts = []
+    for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts)):
+        results = pd.DataFrame({
+            column: train_and_forecast(
+                training_data = df_time_series.iloc[:-fh],
+                testing_data  = df_time_series.iloc[-fh:],
+                column_name = column,
+                model = lgbm.LGBMRegressor(),
+                cv_split = TimeSeriesSplit(n_splits=4, test_size=forecast_horizon),
+                parameters = model_config
+                ) for column in time_series_columns
+        })
+        model_forecasts.append(pd.Series([results[col] for col in time_series_columns]))
+    test_data = df.iloc[-(forecast_horizon+simulated_number_of_forecasts):].reset_index(drop = True)
+    compute_residuals(
+             model_forecasts = model_forecasts,
+             test_data = test_data[time_series_columns],
+             min_forecast_horizon = forecast_horizon
+             ).to_pickle('./data/results/stacked_forecasts_light_gbm_w_sklearn.pkl')
+    print("generate_light_gbm_w_sklearn_stacked_forecast completed")

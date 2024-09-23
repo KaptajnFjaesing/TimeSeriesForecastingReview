@@ -7,7 +7,7 @@ Created on Fri Sep 20 08:44:01 2024
 
 import numpy as np
 import pandas as pd
-from src.utils import normalized_weekly_store_category_household_sales
+from src.utils import load_m5_weekly_store_category_sales_data
 import lightgbm as lgbm
 from tqdm import tqdm
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
@@ -25,7 +25,7 @@ def train_and_forecast(training_data,column_name, model, cv_split, parameters):
     # Predict for the test set
     return grid_search.predict(X_test)
 
-df = normalized_weekly_store_category_household_sales()
+_,df,_ = load_m5_weekly_store_category_sales_data()
 
 time_series_columns = [x for x in df.columns if ('HOUSEHOLD' in x and 'normalized' not in x) or ('date' in x)]
 unnormalized_column_group = [x for x in df.columns if 'HOUSEHOLD' in x and 'normalized' not in x]
