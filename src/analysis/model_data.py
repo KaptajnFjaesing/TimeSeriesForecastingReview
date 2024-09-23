@@ -37,6 +37,14 @@ model_data = {
         'file': './data/results/stacked_forecasts_light_gbm_w_sklearn.pkl',
         'color': 'tab:olive'
     },
+    'TLP Regression Model (MAP)': {
+        'file': './data/results/stacked_forecasts_tlp_regression_model_MAP.pkl',
+        'color': 'tab:purple'
+    },
+    'TLP Regression Model (NUTS)': {
+        'file': './data/results/stacked_forecasts_tlp_regression_model_NUTS.pkl',
+        'color': 'tab:pink'
+    },
     'abs_mean_gradient_training_data': {
         'file': './data/results/abs_mean_gradient_training_data.pkl'
     }

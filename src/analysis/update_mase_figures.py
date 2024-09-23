@@ -16,6 +16,7 @@ def update_mase_figures():
     # Separate the gradient data
     abs_mean_gradient_training_data = model_data['abs_mean_gradient_training_data']['data']
     forecast_models = {k: v for k, v in model_data.items() if k != 'abs_mean_gradient_training_data'}
+    print(forecast_models)
 
     # Initialize MASE arrays
     horizon = max(forecast_models['Static Mean Profile']['data'].index) + 1

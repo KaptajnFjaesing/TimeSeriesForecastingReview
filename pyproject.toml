@@ -22,6 +22,7 @@ jax = "^0.4.33"
 jaxlib = "^0.4.33"
 numpyro = "^0.15.3"
 sorcerer = {git = "https://github.com/KaptajnFjaesing/sorcerer.git"}
+tlp_regression_model = {git = "https://github.com/KaptajnFjaesing/tlp_regression_model.git"}
 
 
 [tool.poetry.group.dev.dependencies]

@@ -12,6 +12,8 @@ import lightgbm as lgbm
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 from sorcerer.sorcerer_model import SorcererModel
+from tlp_regression.tlp_regression_model import TlpRegressionModel
+
 
 from contextlib import redirect_stdout, redirect_stderr
 from io import StringIO
@@ -296,34 +298,25 @@ def generate_sorcerer_stacked_forecast(
         sampler_config: dict,
         model_config: dict
         ):
-
-    time_series_columns = [x for x in df.columns if ('HOUSEHOLD' in x and 'normalized' not in x) or ('date' in x)]
-    unnormalized_column_group = [x for x in df.columns if 'HOUSEHOLD' in x and 'normalized' not in x]
-    df_time_series = df[time_series_columns]
-    model_name = "SorcererModel"
-    version = "v0.3"
-    if sampler_config['sampler'] == "MAP":
-        model_config['precision_target_distribution_prior_alpha'] = 1000
-        model_config['precision_target_distribution_prior_beta'] = 0.01
+    sorcerer = SorcererModel(
+        model_config = model_config,
+        model_name = "SorcererModel",
+        model_version = "v0.3.1"
+        )
+    time_series_columns = [x for x in df.columns if 'HOUSEHOLD' in x]
     model_forecasts_sorcerer = []
     for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts)):
-        training_data = df_time_series.iloc[:-fh]
-        test_data = df_time_series.iloc[-fh:]
-        y_train_min = training_data[unnormalized_column_group].min()
-        y_train_max = training_data[unnormalized_column_group].max()
-        sorcerer = SorcererModel(
-            model_config = model_config,
-            model_name = model_name,
-            sampler_config = sampler_config,
-            version = version
-            )
-        suppress_output(sorcerer.fit, training_data=training_data)
+        training_data = df.iloc[:-fh]
+        test_data = df.iloc[-fh:]
+        y_train_min = training_data[time_series_columns].min()
+        y_train_max = training_data[time_series_columns].max()
+        suppress_output(func = sorcerer.fit, training_data=training_data, sampler_config = sampler_config)
         (preds_out_of_sample, model_preds) = suppress_output(sorcerer.sample_posterior_predictive, test_data=test_data)
-        model_forecasts_sorcerer.append([pd.Series((model_preds["target_distribution"].mean(("chain", "draw")).T)[i].values*(y_train_max[y_train_max.index[i]]-y_train_min[y_train_min.index[i]])+y_train_min[y_train_min.index[i]]) for i in range(len(unnormalized_column_group))])
+        model_forecasts_sorcerer.append([pd.Series((model_preds["target_distribution"].mean(("chain", "draw")).T)[i].values*(y_train_max[y_train_max.index[i]]-y_train_min[y_train_min.index[i]])+y_train_min[y_train_min.index[i]]) for i in range(len(time_series_columns))])
     test_data = df.iloc[-(forecast_horizon+simulated_number_of_forecasts):].reset_index(drop = True)
     compute_residuals(
              model_forecasts = model_forecasts_sorcerer,
-             test_data = test_data[unnormalized_column_group],
+             test_data = test_data[time_series_columns],
              min_forecast_horizon = forecast_horizon
              ).to_pickle(f"./data/results/stacked_forecasts_sorcerer_{sampler_config['sampler']}.pkl")
     print("generate_sorcerer_stacked_forecast completed")
@@ -494,3 +487,49 @@ def generate_light_gbm_w_sklearn_stacked_forecast(
              min_forecast_horizon = forecast_horizon
              ).to_pickle('./data/results/stacked_forecasts_light_gbm_w_sklearn.pkl')
     print("generate_light_gbm_w_sklearn_stacked_forecast completed")
+
+
+def generate_tlp_regression_model_stacked_forecast(
+        df: pd.DataFrame,
+        forecast_horizon: int,
+        simulated_number_of_forecasts: int,
+        sampler_config: dict,
+        model_config: dict,
+        ):
+    model_version = "v0.1.0"
+    tlp_regression_model = TlpRegressionModel(
+        model_config = model_config,
+        model_name = "TLPRegressionModel",
+        model_version = model_version
+        )
+    number_of_weeks_in_a_year = 52.1429
+    number_of_months = 12
+    number_of_quarters = 4
+    time_series_columns = [x for x in df.columns if 'HOUSEHOLD' in x]
+    df_time_series = df.copy(deep = True)
+    df_time_series.loc[:, 'week'] = np.sin(2*np.pi*df_time_series['date'].dt.strftime('%U').astype(int)/number_of_weeks_in_a_year)
+    df_time_series.loc[:, "month"] = np.sin(2*np.pi*df_time_series["date"].dt.month/number_of_months)
+    df_time_series.loc[:, "quarter"] = np.sin(2*np.pi*df_time_series["date"].dt.quarter/number_of_quarters)
+    model_forecasts_sorcerer = []
+    for fh in tqdm(range(forecast_horizon, forecast_horizon + simulated_number_of_forecasts)):
+        training_data = df_time_series.iloc[:-fh].copy(deep=True)
+        test_data = df_time_series.iloc[-fh:].copy(deep=True)
+        training_min_year = training_data["date"].dt.year.min()
+        training_max_year = training_data["date"].dt.year.max()
+        training_data.loc[:, "year"] = (training_data["date"].dt.year - training_min_year) / (training_max_year - training_min_year)
+        test_data.loc[:, "year"] = (test_data["date"].dt.year - training_min_year) / (training_max_year - training_min_year)
+        y_training_min = training_data[time_series_columns].min()
+        y_training_max = training_data[time_series_columns].max()
+        x_train = training_data[["week", "month", "quarter", "year"]].values
+        y_train = ((training_data[time_series_columns]-y_training_min)/(y_training_max-y_training_min)).values
+        x_test = test_data[["week", "month", "quarter", "year"]].values        
+        suppress_output(tlp_regression_model.fit, X = x_train, y = y_train, sampler_config = sampler_config)
+        model_preds = suppress_output(tlp_regression_model.sample_posterior_predictive, x_test=x_test)
+        model_forecasts_sorcerer.append([pd.Series((model_preds["target_distribution"].mean(("chain", "draw")).T)[i].values*(y_training_max[y_training_max.index[i]]-y_training_min[y_training_min.index[i]])+y_training_min[y_training_min.index[i]]) for i in range(len(time_series_columns))])
+    test_data = df.iloc[-(forecast_horizon+simulated_number_of_forecasts):].reset_index(drop = True)
+    compute_residuals(
+             model_forecasts = model_forecasts_sorcerer,
+             test_data = test_data[time_series_columns],
+             min_forecast_horizon = forecast_horizon
+             ).to_pickle(f"./data/results/stacked_forecasts_tlp_regression_model_{sampler_config['sampler']}.pkl")
+    print("tlp_regression_model completed")
