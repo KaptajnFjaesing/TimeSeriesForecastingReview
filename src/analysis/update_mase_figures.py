@@ -59,3 +59,5 @@ def update_mase_figures():
     plt.grid(visible=True, which='both', linewidth=0.6, color='gray', alpha=0.7)
     plt.tight_layout()
     plt.savefig(r'.\docs\report\figures\avg_mase_over_time_series_and_forecast_horizon.png')
+
+update_mase_figures()

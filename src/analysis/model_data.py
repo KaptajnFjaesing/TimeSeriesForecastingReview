@@ -45,6 +45,22 @@ model_data = {
         'file': './data/results/stacked_forecasts_tlp_regression_model_NUTS.pkl',
         'color': 'tab:pink'
     },
+    'Naive Darts Model': {
+        'file': './data/results/stacked_forecasts_naive.pkl',
+        'color': 'black'
+    },
+    'TiDe Darts Model': {
+        'file': './data/results/stacked_forecasts_tide_darts.pkl',
+        'color': 'gold'
+    },
+    'Light GBM darts Model': {
+        'file': './data/results/stacked_forecasts_lgbm_darts.pkl',
+        'color': 'yellow'
+    },
+    'XGBoost Darts Model': {
+        'file': './data/results/stacked_forecasts_xgboost_darts.pkl',
+        'color': 'silver'
+    },
     'abs_mean_gradient_training_data': {
         'file': './data/results/abs_mean_gradient_training_data.pkl'
     }

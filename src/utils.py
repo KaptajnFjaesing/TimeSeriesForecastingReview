@@ -9,6 +9,9 @@ import numpy as np
 import datetime
 import statsmodels.api as sm
 import lightgbm as lgbm
+import darts.models as dm
+from darts import TimeSeries
+
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 from sorcerer.sorcerer_model import SorcererModel
@@ -220,8 +223,8 @@ def generate_abs_mean_gradient_training_data(
         forecast_horizon: int,
         simulated_number_of_forecasts: int
         ):
-    unnormalized_column_group = [x for x in df.columns if 'HOUSEHOLD' in x and 'normalized' not in x]
-    df.iloc[:-(forecast_horizon+simulated_number_of_forecasts)].reset_index(drop = True)[unnormalized_column_group].diff().dropna().abs().mean(axis = 0).to_pickle('./data/results/abs_mean_gradient_training_data.pkl')
+    household_columns = [x for x in df.columns if 'HOUSEHOLD' in x]
+    df.iloc[:-(forecast_horizon+simulated_number_of_forecasts)].reset_index(drop = True)[household_columns].diff().dropna().abs().mean(axis = 0).to_pickle('./data/results/abs_mean_gradient_training_data.pkl')
     print("generate_abs_mean_gradient_training_data completed")
 
 
@@ -533,3 +536,92 @@ def generate_tlp_regression_model_stacked_forecast(
              min_forecast_horizon = forecast_horizon
              ).to_pickle(f"./data/results/stacked_forecasts_tlp_regression_model_{sampler_config['sampler']}.pkl")
     print("tlp_regression_model completed")
+    
+
+def generate_naive_darts_stacked_forecast(
+        df: pd.DataFrame,
+        forecast_horizon: int,
+        simulated_number_of_forecasts: int
+        ):
+    naive_model = dm.NaiveDrift()
+    time_series_columns = [x for x in df.columns if 'HOUSEHOLD' in x]
+    model_forecasts = []
+    for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts)):
+        training_data = df.iloc[:-fh]
+        test_data = df.iloc[-fh:]
+        target = TimeSeries.from_dataframe(training_data, 'date')
+        naive_model.fit(target)
+        naive_predict = naive_model.predict(forecast_horizon)        
+        model_forecasts.append([pd.Series(naive_predict.values()[:,i]) for i in range(len(time_series_columns))])
+    test_data = df.iloc[-(forecast_horizon+simulated_number_of_forecasts):].reset_index(drop = True)
+    compute_residuals(
+             model_forecasts = model_forecasts,
+             test_data = test_data[time_series_columns],
+             min_forecast_horizon = forecast_horizon
+             ).to_pickle("./data/results/stacked_forecasts_naive_darts.pkl")
+    print("generate_naive_darts_stacked_forecast completed")
+
+
+def generate_lgbm_darts_stacked_forecast(
+        df: pd.DataFrame,
+        forecast_horizon: int,
+        simulated_number_of_forecasts: int,
+        model_config: dict
+        ):
+    time_series_columns = [x for x in df.columns if 'HOUSEHOLD' in x]
+    model_forecasts = []
+    for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts)):
+        lgbm_model = dm.LightGBMModel(**model_config)
+        lgbm_model.fit(TimeSeries.from_dataframe(df.iloc[:-fh], 'date'))
+        lgbm_predict = lgbm_model.predict(forecast_horizon)    
+        model_forecasts.append([pd.Series(lgbm_predict.values()[:,i]) for i in range(len(time_series_columns))])
+    test_data = df.iloc[-(forecast_horizon+simulated_number_of_forecasts):].reset_index(drop = True)
+    compute_residuals(
+             model_forecasts = model_forecasts,
+             test_data = test_data[time_series_columns],
+             min_forecast_horizon = forecast_horizon
+             ).to_pickle("./data/results/stacked_forecasts_lgbm_darts.pkl")
+    print("generate_lgbm_darts_stacked_forecast completed")
+
+
+def generate_tide_darts_stacked_forecast(
+        df: pd.DataFrame,
+        forecast_horizon: int,
+        simulated_number_of_forecasts: int,
+        model_config: dict
+        ):
+    time_series_columns = [x for x in df.columns if 'HOUSEHOLD' in x]
+    model_forecasts = []
+    for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts)):
+        tide_model = dm.TiDEModel(**model_config)
+        tide_model.fit(TimeSeries.from_dataframe(df.iloc[:-fh], 'date'))
+        tide_predict = tide_model.predict(forecast_horizon)    
+        model_forecasts.append([pd.Series(tide_predict.values()[:,i]) for i in range(len(time_series_columns))])
+    test_data = df.iloc[-(forecast_horizon+simulated_number_of_forecasts):].reset_index(drop = True)
+    compute_residuals(
+             model_forecasts = model_forecasts,
+             test_data = test_data[time_series_columns],
+             min_forecast_horizon = forecast_horizon
+             ).to_pickle("./data/results/stacked_forecasts_tide_darts.pkl")
+    print("generate_tide_darts_stacked_forecast completed")
+
+def generate_xgboost_darts_stacked_forecast(
+        df: pd.DataFrame,
+        forecast_horizon: int,
+        simulated_number_of_forecasts: int,
+        model_config: dict
+        ):
+    time_series_columns = [x for x in df.columns if 'HOUSEHOLD' in x]
+    model_forecasts = []
+    for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts)):
+        xgbm_model = dm.XGBModel(**model_config)
+        xgbm_model.fit(TimeSeries.from_dataframe(df.iloc[:-fh], 'date'))
+        xgbm_predict = xgbm_model.predict(forecast_horizon)    
+        model_forecasts.append([pd.Series(xgbm_predict.values()[:,i]) for i in range(len(time_series_columns))])
+    test_data = df.iloc[-(forecast_horizon+simulated_number_of_forecasts):].reset_index(drop = True)
+    compute_residuals(
+             model_forecasts = model_forecasts,
+             test_data = test_data[time_series_columns],
+             min_forecast_horizon = forecast_horizon
+             ).to_pickle("./data/results/stacked_forecasts_xgboost_darts.pkl")
+    print("generate_xgboost_darts_stacked_forecast completed")

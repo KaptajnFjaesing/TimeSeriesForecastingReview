@@ -14,7 +14,10 @@ from src.utils import (
     generate_sorcerer_stacked_forecast,
     generate_light_gbm_stacked_forecast,
     generate_light_gbm_w_sklearn_stacked_forecast,
-    generate_tlp_regression_model_stacked_forecast
+    generate_tlp_regression_model_stacked_forecast,
+    generate_lgbm_darts_stacked_forecast,
+    generate_tide_darts_stacked_forecast,
+    generate_xgboost_darts_stacked_forecast
     )
 
 from src.analysis.update_mase_figures import update_mase_figures
@@ -88,6 +91,23 @@ lgbm_config_sklearn = {
     'verbose':[-1]
 }
 
+lgbm_darts_config = {
+    'lags': 32,
+    'n_estimators': 100,
+    'learning_rate': 0.01,
+    'max_depth': 60,
+    'random_state': 42,
+    'verbosity': -1
+    }
+
+xgboost_darts_config = {
+    'lags': 32,
+    'n_estimators': 100,
+    'learning_rate': 0.01,
+    'max_depth': 60,
+    'random_state': 42
+    }
+
 tlp_MAP_sampler = {
     "draws": 500,
     "tune": 200,
@@ -130,6 +150,19 @@ tlp_config = {
     "n_hidden_layer1": 20,
     "n_hidden_layer2": 20
 }
+
+tide_darts_config = {
+    'input_chunk_length': 64,  # Input sequence length
+    'output_chunk_length': forecast_horizon,  # Forecast horizon
+    'hidden_size': 196,  # Size of hidden layers
+    'n_epochs': 150,  # More epochs for better training
+    'dropout': 0.4,  # Regularization to prevent overfitting
+    'optimizer_kwargs': {'lr': 0.0001},  # Learning rate for optimizer
+    'random_state': 42,  # For reproducibility
+    'num_encoder_layers': 4,
+    'num_decoder_layers': 4,
+    'decoder_output_dim': 8
+    }
 
 
 if __name__ == "__main__":
@@ -217,6 +250,27 @@ if __name__ == "__main__":
                 model_config = tlp_config,
                 )
         
+        generate_lgbm_darts_stacked_forecast(
+                df = df,
+                forecast_horizon = forecast_horizon,
+                simulated_number_of_forecasts = simulated_number_of_forecasts,
+                model_config = lgbm_darts_config
+                )
+        
+        generate_tide_darts_stacked_forecast(
+                df = df,
+                forecast_horizon = forecast_horizon,
+                simulated_number_of_forecasts = simulated_number_of_forecasts,
+                model_config = tide_darts_config
+                )
+        
+        generate_xgboost_darts_stacked_forecast(
+                df = df,
+                forecast_horizon = forecast_horizon,
+                simulated_number_of_forecasts = simulated_number_of_forecasts,
+                model_config = xgboost_darts_config
+                )
+        
     else:
         
         if 'tlp' in args.models:
@@ -266,4 +320,11 @@ if __name__ == "__main__":
                     simulated_number_of_forecasts = simulated_number_of_forecasts,
                     forecast_horizon = forecast_horizon,
                     model_config = lgbm_config_sklearn
+                    )
+            
+            generate_lgbm_darts_stacked_forecast(
+                    df = df,
+                    forecast_horizon = forecast_horizon,
+                    simulated_number_of_forecasts = simulated_number_of_forecasts,
+                    model_config = lgbm_darts_config
                     )
