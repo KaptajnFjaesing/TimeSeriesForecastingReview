@@ -6,7 +6,6 @@ Created on Wed Sep 11 13:25:03 2024
 import pandas as pd
 from tqdm import tqdm
 import numpy as np
-import datetime
 import statsmodels.api as sm
 import lightgbm as lgbm
 import darts.models as dm
@@ -16,7 +15,6 @@ from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 from sorcerer.sorcerer_model import SorcererModel
 from tlp_regression.tlp_regression_model import TlpRegressionModel
-
 
 from contextlib import redirect_stdout, redirect_stderr
 from io import StringIO
@@ -32,72 +30,6 @@ def compute_residuals(model_forecasts, test_data, min_forecast_horizon):
         truncated_errors_df = errors_df.iloc[:min_forecast_horizon].reset_index(drop=True)        
         metrics_list.append(truncated_errors_df)
     return pd.concat(metrics_list, axis=0)
-
-def load_passengers_data() -> pd.DataFrame:
-    return pd.read_csv('./data/passengers.csv', parse_dates=['Date'])
-    
-def load_m5_data() -> tuple[pd.DataFrame]:
-    sell_prices_df = pd.read_csv('./data/sell_prices.csv')
-    train_sales_df = pd.read_csv('./data/sales_train_validation.csv')
-    calendar_df = pd.read_csv('./data/calendar.csv')
-    submission_file = pd.read_csv('./data/sample_submission.csv')
-    return (
-        sell_prices_df,
-        train_sales_df,
-        calendar_df,
-        submission_file
-        )
-
-def load_m5_weekly_store_category_sales_data():
-    
-    (sell_prices_df, train_sales_df, calendar_df, submission_file) = load_m5_data()
-    
-    threshold_date = datetime.datetime(2011, 1, 1)
-    
-    d_cols = [c for c in train_sales_df.columns if 'd_' in c]
-    
-    train_sales_df['store_cat'] = train_sales_df['store_id'].astype(str) + '_' + train_sales_df['cat_id'].astype(str)
-    # Group by 'state_id' and sum the sales across the specified columns in `d_cols`
-    sales_sum_df = train_sales_df.groupby(['store_cat'])[d_cols].sum().T
-    
-    # Merge the summed sales data with the calendar DataFrame on the 'd' column and set the index to 'date'
-    store_category_sales = sales_sum_df.merge(calendar_df.set_index('d')['date'], 
-                                   left_index=True, right_index=True, 
-                                   validate="1:1").set_index('date')
-    # Ensure that the index of your DataFrame is in datetime format
-    store_category_sales.index = pd.to_datetime(store_category_sales.index)
-    weekly_store_category_sales = store_category_sales[store_category_sales.index > threshold_date].resample('W-MON', closed = "left", label = "left").sum().iloc[1:]
-    
-    food_columns = [x for x in weekly_store_category_sales.columns if 'FOOD' in x]
-    household_columns = [x for x in weekly_store_category_sales.columns if 'HOUSEHOLD' in x]
-    hobbies_columns = [x for x in weekly_store_category_sales.columns if 'HOBBIES' in x]
-    
-    weekly_store_category_food_sales = weekly_store_category_sales[food_columns]
-    weekly_store_category_household_sales = weekly_store_category_sales[household_columns]
-    weekly_store_category_hobbies_sales = weekly_store_category_sales[hobbies_columns]
-    
-    return (
-        weekly_store_category_food_sales.reset_index(),
-        weekly_store_category_household_sales.reset_index(),
-        weekly_store_category_hobbies_sales.reset_index()
-        )
-
-
-def normalized_weekly_store_category_household_sales(df: pd.DataFrame) -> pd.DataFrame:
-    df_temp = df.copy(deep=True)
-    df_temp['week'] = df['date'].dt.strftime('%U').astype(int)
-    df_temp['year'] = df['date'].dt.strftime('%Y').astype(int)
-    df_temp = df_temp[df_temp['week'] != 53]
-    weeks_per_year = df_temp.groupby('year').week.nunique()
-    years_with_52_weeks = weeks_per_year[weeks_per_year == 52].index
-    df_full_years = df_temp[df_temp['year'].isin(years_with_52_weeks)]
-    yearly_means = df_full_years[[x for x in df_full_years.columns if ('HOUSEHOLD' in x or 'year' in x) ]].groupby('year').mean().reset_index()
-    df_full_years_merged = df_full_years.merge(yearly_means,  on='year', how = 'left', suffixes=('', '_yearly_mean'))
-    for item in [x for x in df_temp.columns if 'HOUSEHOLD' in x ]:
-        df_full_years_merged[item + '_normalized'] = df_full_years_merged[item] / df_full_years_merged[item + '_yearly_mean']
-    df_normalized = df_full_years_merged[[x for x in df_full_years_merged.columns if ('normalized' in x or x == 'week' or x == 'year')]]
-    return df_normalized
-
 
 def generate_mean_profile(df, seasonality_period): 
     df_temp = df.copy(deep=True)
