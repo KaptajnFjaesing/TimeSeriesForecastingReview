@@ -6,7 +6,7 @@ Created on Mon Sep 23 08:31:10 2024
 
 model_data = {
     'Static Mean Profile': {
-        'file': './data/results/stacked_forecasts_static_mean.pkl',
+        'file': './data/results/stacked_residuals_static_mean.pkl',
         'color': 'tab:blue'
     },
     'Rolling Mean Profile': {
@@ -14,11 +14,11 @@ model_data = {
         'color': 'tab:red'
     },
     'Exponential Smoothing': {
-        'file': './data/results/stacked_forecasts_exponential_smoothing.pkl',
+        'file': './data/results/stacked_residuals_exponential_smoothing.pkl',
         'color': 'tab:green'
     },
     'SSM': {
-        'file': './data/results/stacked_forecasts_statespace.pkl',
+        'file': './data/results/stacked_residuals_statespace.pkl',
         'color': 'tab:cyan'
     },
     'Sorcerer v0.3 (MAP)': {
@@ -30,11 +30,11 @@ model_data = {
         'color': 'tab:orange'
     },
     'Light GBM Basic': {
-        'file': './data/results/stacked_forecasts_light_gbm.pkl',
+        'file': './data/results/stacked_residuals_lgbm_basic.pkl',
         'color': 'tab:gray'
     },
     'Light GBM w. sklearn': {
-        'file': './data/results/stacked_forecasts_light_gbm_w_sklearn.pkl',
+        'file': './data/results/stacked_residuals_lgbm_sklearn.pkl',
         'color': 'tab:olive'
     },
     'TLP Regression Model (MAP)': {
@@ -46,19 +46,19 @@ model_data = {
         'color': 'tab:pink'
     },
     'Naive Darts Model': {
-        'file': './data/results/stacked_forecasts_naive.pkl',
+        'file': './data/results/stacked_residuals_naive_darts.pkl',
         'color': 'black'
     },
     'TiDe Darts Model': {
-        'file': './data/results/stacked_forecasts_tide_darts.pkl',
+        'file': './data/results/stacked_residuals_tide_darts.pkl',
         'color': 'gold'
     },
     'Light GBM darts Model': {
-        'file': './data/results/stacked_forecasts_lgbm_darts.pkl',
+        'file': './data/results/stacked_residuals_lgbm_darts.pkl',
         'color': 'yellow'
     },
     'XGBoost Darts Model': {
-        'file': './data/results/stacked_forecasts_xgboost_darts.pkl',
+        'file': './data/results/stacked_residuals_xgboost_darts.pkl',
         'color': 'silver'
     },
     'abs_mean_gradient_training_data': {

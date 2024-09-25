@@ -16,7 +16,6 @@ def update_mase_figures():
     # Separate the gradient data
     abs_mean_gradient_training_data = model_data['abs_mean_gradient_training_data']['data']
     forecast_models = {k: v for k, v in model_data.items() if k != 'abs_mean_gradient_training_data'}
-    print(forecast_models)
 
     # Initialize MASE arrays
     horizon = max(forecast_models['Static Mean Profile']['data'].index) + 1
@@ -57,5 +56,34 @@ def update_mase_figures():
     plt.grid(visible=True, which='both', linewidth=0.6, color='gray', alpha=0.7)
     plt.tight_layout()
     plt.savefig(r'.\docs\report\figures\avg_mase_over_time_series_and_forecast_horizon.pdf')
-
+    
 update_mase_figures()
+
+#%%
+
+# Load the forecast data and gradient
+for model_name, model_info in model_data.items():
+    model_data[model_name]['data'] = pd.read_pickle(model_info['file'])
+# Separate the gradient data
+abs_mean_gradient_training_data = model_data['abs_mean_gradient_training_data']['data']
+forecast_models = {k: v for k, v in model_data.items() if k != 'abs_mean_gradient_training_data'}
+
+# Initialize MASE arrays
+horizon = max(forecast_models['Static Mean Profile']['data'].index) + 1
+MASE_std_over_time_series = np.zeros((len(forecast_models), horizon))
+MASE_averaged_over_time_series = np.zeros((len(forecast_models), horizon))
+
+#%%
+forecast_data = forecast_models['Naive Darts Model']['data']
+average_abs_residual = forecast_data.abs().groupby(forecast_data.index).mean()
+MASE = average_abs_residual / abs_mean_gradient_training_data
+MASE_averaged_over_time_series = MASE.mean(axis=1)
+MASE_std_over_time_series = MASE.std(axis=1)
+#%%
+
+for j, (model_name, model_info) in enumerate(forecast_models.items()):
+    forecast_data = model_info['data']
+    average_abs_residual = forecast_data.abs().groupby(forecast_data.index).mean()
+    MASE = average_abs_residual / abs_mean_gradient_training_data
+    MASE_averaged_over_time_series[j] = MASE.mean(axis=1)
+    MASE_std_over_time_series[j] = MASE.std(axis=1)
