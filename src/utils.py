@@ -6,6 +6,7 @@ Created on Wed Sep 11 13:25:03 2024
 """
 import pandas as pd
 import datetime
+import numpy as np
 
 def compute_residuals(model_forecasts, test_data, min_forecast_horizon):
     """
@@ -112,5 +113,13 @@ def normalized_weekly_store_category_household_sales() -> pd.DataFrame:
 
     return df_temp_filtered[[x for x in df_temp_filtered.columns if (('HOUSEHOLD' in x or 'week' in x or 'year' in x or 'date' in x) and ('yearly' not in x))]]
 
+class CustomBackTransformation:
+    def __init__(self, constants0,consants1):
+        self.constants0 = constants0
+        self.constants1 = consants1
 
+    def __call__(self, forecast, index):
+        # Apply the transformation with the constant for the specific forecast index
+        forecast.samples = np.exp(np.cumsum(forecast.samples, axis=1) + self.constants0[index] + self.constants1[index])
+        return forecast
 
