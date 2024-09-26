@@ -31,7 +31,8 @@ name_mapping = {
     'tide_darts': 'TiDe Darts Model',
     'lgbm_darts': 'Light GBM darts Model',
     'xgboost_darts': 'XGBoost Darts Model',
-    'abs_mean_gradient_training_data': 'abs_mean_gradient_training_data'
+    'abs_mean_gradient_training_data': 'abs_mean_gradient_training_data',
+    'deepar': 'DeepAR GluonTS'
 }
 
 # Define a color mapping (optional)
@@ -50,6 +51,7 @@ color_mapping = {
     'tide_darts': 'gold',
     'lgbm_darts': 'yellow',
     'xgboost_darts': 'silver',
+    'deepar': 'tomato'
 }
 
 # Iterate through files in the results directory

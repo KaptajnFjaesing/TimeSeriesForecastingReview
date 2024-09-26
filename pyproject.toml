@@ -24,6 +24,8 @@ numpyro = "^0.15.3"
 sorcerer = {git = "https://github.com/KaptajnFjaesing/sorcerer.git"}
 tlp_regression_model = {git = "https://github.com/KaptajnFjaesing/tlp_regression_model.git"}
 darts = "^0.30.0"
+gluonts = "^0.15.1"
+lightning = "^2.4.0"
 
 
 [tool.poetry.group.dev.dependencies]
