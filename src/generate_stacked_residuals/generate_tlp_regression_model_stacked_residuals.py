@@ -91,7 +91,7 @@ def generate_tlp_regression_model_stacked_residuals(
         model_forecasts_unnormalized = pd.DataFrame(data = model_preds["target_distribution"].mean(("chain", "draw")), columns = time_series_column_group)
         model_forecasts = model_forecasts_unnormalized*(y_train_max-y_train_min)+y_train_min
         residuals.append((testing_data[time_series_column_group]-model_forecasts.set_index(df.iloc[-fh:].head(forecast_horizon).index)).reset_index(drop = True))
-    pd.concat(residuals, axis=0).to_pickle("./data/results/stacked_residuals_tlp_{sampler_config['sampler']}.pkl")
+    pd.concat(residuals, axis=0).to_pickle(f"./data/results/stacked_residuals_tlp_{sampler_config['sampler']}.pkl")
 
 generate_tlp_regression_model_stacked_residuals()
 

@@ -15,9 +15,9 @@ import src.generate_stacked_residuals.global_model_parameters as gmp
 model_config_default = {
     'freq_seasonal': [{
         'period': int(gmp.number_of_weeks_in_a_year),
-        'harmonics':10
+        'harmonics':15
         }],
-    'autoregressive': 2,
+    'autoregressive': 5,
     'level': True,
     'trend': True,
     'stochastic_level': True, 

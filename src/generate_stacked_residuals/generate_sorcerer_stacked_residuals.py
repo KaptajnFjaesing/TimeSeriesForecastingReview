@@ -13,8 +13,8 @@ import src.generate_stacked_residuals.global_model_parameters as gmp
 
 
 sampler_config_default = {
-    "draws": 600,
-    "tune": 200,
+    "draws": 500,
+    "tune": 100,
     "chains": 1,
     "cores": 1,
     "sampler": "NUTS",
@@ -78,7 +78,7 @@ def generate_sorcerer_stacked_residuals(
         model_forecasts_unnormalized = pd.DataFrame(data = model_preds["target_distribution"].mean(("chain", "draw")), columns = time_series_column_group)
         model_forecasts = model_forecasts_unnormalized*(y_train_max-y_train_min)+y_train_min
         residuals.append((testing_data[time_series_column_group]-model_forecasts.set_index(df.iloc[-fh:].head(forecast_horizon).index)).reset_index(drop = True))
-    pd.concat(residuals, axis=0).to_pickle('./data/results/stacked_residuals_sorcerer.pkl')
+    pd.concat(residuals, axis=0).to_pickle(f"./data/results/stacked_residuals_sorcerer_{sampler_config['sampler']}.pkl")
 
+generate_sorcerer_stacked_residuals(sampler_config = sampler_config_MAP)
 generate_sorcerer_stacked_residuals()
-generate_sorcerer_stacked_residuals(model_config = sampler_config_MAP)
