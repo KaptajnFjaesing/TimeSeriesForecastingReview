@@ -79,7 +79,6 @@ def generate_deepar_stacked_residuals(
         for j in range(len(time_series_column_group)):
             model_forecasts[time_series_column_group[j]] = transformed_forecasts[j].samples.mean(axis=0)
         residuals.append(df.iloc[-fh:].head(forecast_horizon)[time_series_column_group].reset_index(drop = True)-model_forecasts.reset_index(drop = True))
-    return residuals
     pd.concat(residuals, axis=0).to_pickle("./data/results/stacked_residuals_deepar.pkl")
 
 generate_deepar_stacked_residuals()

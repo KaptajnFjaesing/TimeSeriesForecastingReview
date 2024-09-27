@@ -19,7 +19,7 @@ model_data = {}
 name_mapping = {
     'static_mean': 'Static Mean Profile',
     'rolling_mean': 'Rolling Mean Profile',
-    'exponential_smoothing': 'Exponential Smoothing',
+    'exponential_smoothing': 'Holt-Winters',
     'statespace': 'SSM',
     'sorcerer_MAP': 'Sorcerer v0.3 (MAP)',
     'sorcerer_NUTS': 'Sorcerer v0.3 (NUTS)',
@@ -66,7 +66,6 @@ for file_name in os.listdir(results_dir):
                 }
                 break  # Exit the loop once a match is found
 
-# %%
 
 # Load the forecast data and gradient
 for model_name, model_info in model_data.items():
@@ -80,7 +79,6 @@ horizon = max(forecast_models['Static Mean Profile']['data'].index) + 1
 MASE_std_over_time_series = np.zeros((len(forecast_models), horizon))
 MASE_averaged_over_time_series = np.zeros((len(forecast_models), horizon))
 
-#%%
 # Compute MASE for each model
 for j, (model_name, model_info) in enumerate(forecast_models.items()):
     forecast_data = model_info['data']
@@ -89,7 +87,6 @@ for j, (model_name, model_info) in enumerate(forecast_models.items()):
     MASE_averaged_over_time_series[j] = MASE.mean(axis=1)
     MASE_std_over_time_series[j] = MASE.std(axis=1)
 
-#%%
 # Plot average MASE over forecast horizon
 plt.figure(figsize=(10, 10))
 for model_name, model_info in forecast_models.items():
