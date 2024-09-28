@@ -109,18 +109,39 @@ model_config = {
 }
 
 
-X_training_min = training_data['date'].astype('int64').min()//10**9
-X_training_max = training_data['date'].astype('int64').max()//10**9
-X = ((training_data['date'].astype('int64')//10**9-X_training_min)/(X_training_max-X_training_min))
 
-Y_training_min = training_data[time_series_column_group].min()
-Y_training_max = training_data[time_series_column_group].max()
-Y = ((training_data[time_series_column_group]-Y_training_min)/(Y_training_max-Y_training_min))
+#%%
+import pandas as pd
 
-X_test = ((test_data['date'].astype('int64')//10**9-X_training_min)/(X_training_max-X_training_min))
+def extend_training_data(
+        df_training: pd.DataFrame,
+        forecast_horizon: int
+        ):
+    time_delta = training_data['date'].diff().dropna().unique()[0]
+    new_dates = pd.date_range(start=training_data['date'].iloc[-1] + time_delta, periods=forecast_horizon, freq=time_delta)
+    new_rows = pd.DataFrame({
+        'date': new_dates
+    })
+    return pd.concat([training_data, new_rows], ignore_index=True)
+
+extended_training_data = extend_training_data(
+        df_training = training_data,
+        forecast_horizon = forecast_horizon
+        )
+
+X_training_min = extended_training_data['date'].astype('int64').min()//10**9
+X_training_max = extended_training_data['date'].astype('int64').max()//10**9
+X = ((extended_training_data['date'].astype('int64')//10**9-X_training_min)/(X_training_max-X_training_min))
+
+
+Y_training_min = extended_training_data[time_series_column_group].min()
+Y_training_max = extended_training_data[time_series_column_group].max()
+Y = ((extended_training_data[time_series_column_group]-Y_training_min)/(Y_training_max-Y_training_min))
+
+X_test = X.iloc[-forecast_horizon:]
 Y_test = ((test_data[time_series_column_group]-Y_training_min)/(Y_training_max-Y_training_min))
 
-mask = training_data[time_series_column_group]
+mask = extended_training_data[time_series_column_group]
 mask = mask.where(mask.isna(), 1)
 X_matrix = mask.multiply(X, axis=0)
 
@@ -135,9 +156,10 @@ coords = {
 
 dX = X[1]-X[0]
 
+#%%
 with pm.Model(coords = coords) as model:
     
-    x = pm.Data('input', X_test, dims='number_of_input_observations')
+    x = pm.Data('input', X, dims='number_of_input_observations')
 
     linear_term = add_linear_term(
         x=x,
@@ -214,8 +236,8 @@ with pm.Model(coords = coords) as model:
 # %%
 
 sampler_config = {
-    "draws": 100,
-    "tune": 50,
+    "draws": 600,
+    "tune": 200,
     "chains": 1,
     "cores": 1,
     "sampler": "NUTS",
@@ -224,9 +246,6 @@ sampler_config = {
 
 with model:
     idata = pm.sample(step = pm.NUTS(), **{k: v for k, v in sampler_config.items() if (k != 'sampler' and k != 'verbose')})
-
-# %%
-
 
 
 # %%
