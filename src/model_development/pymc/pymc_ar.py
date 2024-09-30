@@ -3,14 +3,43 @@ import pandas as pd
 import pymc as pm
 import matplotlib.pyplot as plt
 
-# Step 1: Create a Mock Time Series
-np.random.seed(42)
-n = 200  # Number of time points
-t = np.arange(n)
-data = (np.sin(t * 0.1) + np.random.normal(scale=0.4, size=n))  # Sine wave with noise
+def generate_ar_time_series(n_timesteps, coefs, noise_std, initial_values):
+    """
+    Generate an AR(2) time series with specified coefficients and noise.
+    
+    Args:
+    n_timesteps (int): Number of timesteps to generate.
+    coefs (list of floats): AR coefficients [phi1, phi2].
+    noise_std (float): Standard deviation of Gaussian noise.
+    initial_values (list of floats): Initial values to start the time series.
+    
+    Returns:
+    np.ndarray: Generated AR(2) time series.
+    """
+    # Pre-allocate time series array
+    time_series = np.zeros(n_timesteps)
+    
+    # Set initial values
+    time_series[0:2] = initial_values
+    
+    # Generate the AR(2) series
+    for t in range(2, n_timesteps):
+        noise = np.random.normal(0, noise_std)
+        time_series[t] = coefs[0] * time_series[t-1] + coefs[1] * time_series[t-2] + noise
+    
+    return time_series
 
-# Convert to a DataFrame
-df = pd.DataFrame({'time': t, 'value': data})
+# Parameters for AR(2) model
+n_timesteps = 200
+coefs = [0.6, -0.3]  # AR coefficients (phi1, phi2)
+noise_std = 0.1      # Noise standard deviation
+initial_values = [0.5, 0.3]  # Initial values for the first two timesteps
+
+# Generate two time series
+ar_series_1 = generate_ar_time_series(n_timesteps, coefs, noise_std, initial_values)
+ar_series_2 = generate_ar_time_series(n_timesteps, coefs, noise_std, initial_values)
+
+df = pd.DataFrame({'time': np.arange(n_timesteps), 'value': ar_series_1})
 scale = 20
 
 split = int(len(df)*0.77)
@@ -43,40 +72,35 @@ Notes:
 
 """
 
-coef_size = 10
-LAM = 0.1 
-init_size = 1
-target_std = 0.1
+coef_size = 2
+target_std = 0.2
 rho_mu = 0
-rho_sigma = 10
+rho_sigma = 1
 init_mu = 0
-init_sigma = 100
+init_sigma = 1
 
 
 prediction_length = len(x_test)
 with pm.Model() as AR_model1:
     AR_model1.add_coord("obs_id", x_train)
 
-    t1 = pm.Data("t", x_train, dims="obs_id")
     y1 = pm.Data("y", y_train, dims="obs_id2")
     rho = pm.Normal("coefs",
                       mu = rho_mu,
                       sigma= rho_sigma,
-                      shape = coef_size+1
+                      shape = coef_size
                       )
-    tau = pm.Exponential("tau", lam=LAM)
     init = pm.Normal.dist(
         mu = init_mu,
         sigma = init_sigma,
-        shape = init_size
+        shape = coef_size-1
     )
     ar1 = pm.AR(
         "ar",
         rho = rho,
-        tau=tau,
-        init_dist=init,
+        sigma = 1,
+        init_dist=pm.Normal.dist(0,10),
         constant=True,
-        steps = t1.shape[0]-coef_size,
         dims="obs_id",
     )
     target_distribution = pm.Normal("target_distribution", mu=ar1, sigma=target_std, observed=y1, dims="obs_id")
@@ -89,7 +113,7 @@ with AR_model1:
         "ar1_fut",
         init_dist=pm.DiracDelta.dist(ar1[..., -1]),
         rho=rho,
-        tau=tau,
+        sigma = 1,
         constant=True,
         dims="obs_id_fut_1",
     )
@@ -158,7 +182,7 @@ plt.plot(x_train,y_train, label = "training data")
 plt.plot(x_test,y_test, label = "test data")
 plt.plot(x_test,mean_predictions_test, label='Forecast AR model 1', linestyle='--')
 plt.plot(x_test,mean_predictions_test2, label='Forecast AR model 2', linestyle='--')
-plt.ylim([0,max(y_test)*1.1])
+plt.ylim([-0.2,0.2])
 plt.legend()
 plt.xlabel('Time')
 plt.ylabel('Value')
