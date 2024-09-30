@@ -13,7 +13,7 @@ from src.data_loader import load_m5_weekly_store_category_sales_data
 
 _,df,_ = load_m5_weekly_store_category_sales_data()
 
-nan_count = [0, 102, 73, 17, 37, 42, 9, 4, 0, 8]
+nan_count = [0, 102, 73, 17, 220, 42, 9, 4, 0, 8]
 time_series_column_group = [x for x in df.columns if 'HOUSEHOLD' in x]
 
 # Assign NaNs to the start of each column dynamically
