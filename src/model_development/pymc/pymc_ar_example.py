@@ -65,7 +65,18 @@ with pm.Model() as AR:
 
     outcome = pm.Normal("likelihood", mu=ar1, sigma=sigma, observed=y, dims="obs_id")
     idata_ar = pm.sample(tune=100, draws=200, chains=1)
+    posterior1 = pm.sample_posterior_predictive(idata_ar, var_names=["likelihood"], predictions=True)
 
+# %%
+fig, ax = plt.subplots(figsize=(10, 3))
+ax.set_title("Generated Autoregressive Timeseries", fontsize=15)
+ax.plot(range(len(training_data)),training_data)
+ax.plot(range(len(training_data),len(ar1_data)),test_data)
+
+posterior1.predictions["likelihood"].mean(["chain", "draw"]).plot(color="cyan", label="Predicted Mean Realisation")
+
+
+#%%
 with AR:
     AR.add_coords({"obs_id_fut_1": range(training_data.shape[0] - 1, len(ar1_data), 1)})
     AR.add_coords({"obs_id_fut": range(training_data.shape[0], len(ar1_data), 1)})
