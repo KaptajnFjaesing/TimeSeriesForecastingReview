@@ -3,14 +3,14 @@ Created on Mon Sep 23 08:25:47 2024
 
 @author: Jonas Petersen
 """
-
+# %%
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 
 # Define the directory containing the results
-results_dir = './data/results/'
+results_dir = '../../data/results/'
 
 # Initialize the model data dictionary
 model_data = {}
@@ -30,6 +30,7 @@ name_mapping = {
     'naive_darts': 'Naive Darts Model',
     'tide_darts': 'TiDe Darts Model',
     'lgbm_darts': 'Light GBM darts Model',
+    'lgbm_feature_darts': 'Light GBM Feature Darts Model',
     'xgboost_darts': 'XGBoost Darts Model',
     'abs_mean_gradient_training_data': 'abs_mean_gradient_training_data',
     'deepar': 'DeepAR GluonTS'
@@ -50,6 +51,7 @@ color_mapping = {
     'naive_darts': 'black',
     'tide_darts': 'gold',
     'lgbm_darts': 'yellow',
+    'lgbm_feature_darts': 'darkorange',
     'xgboost_darts': 'silver',
     'deepar': 'tomato'
 }
@@ -97,7 +99,7 @@ plt.ylabel('Avg MASE over time series', fontsize=14)
 plt.xlabel('Forecast horizon', fontsize=14)
 plt.legend(bbox_to_anchor=(1.05, 0.5), loc='center left', borderaxespad=0.)
 plt.tight_layout()
-plt.savefig(r'.\docs\report\figures\avg_mase_over_time_series.pdf')
+# plt.savefig(r'.\docs\report\figures\avg_mase_over_time_series.pdf')
 
 # Plot error bars for MASE across models
 plt.figure(figsize=(8, 5))
@@ -112,4 +114,5 @@ plt.ylabel('Model', fontsize=14)
 plt.xlabel('Avg MASE over time series and forecast horizon', fontsize=14)
 plt.grid(visible=True, which='both', linewidth=0.6, color='gray', alpha=0.7)
 plt.tight_layout()
-plt.savefig(r'.\docs\report\figures\avg_mase_over_time_series_and_forecast_horizon.pdf')
+# plt.savefig(r'.\docs\report\figures\avg_mase_over_time_series_and_forecast_horizon.pdf')
+# %%
