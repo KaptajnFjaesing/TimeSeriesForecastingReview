@@ -66,9 +66,16 @@ def generate_mean_profile_stacked_residuals(
 
         # rolling forecast
         projected_scales_rolling = training_data[time_series_column_group].iloc[-MA_window:].mean(axis = 0)
+        """
+            NOTE: 
+            week_indices_in_forecast[0] gives the first week in the forecast, we need to subtract 1 to get the last week in the training data
+            giving us week_indices_in_forecast[0] - 1. The logic for selecting the week in the training to use as the average is then calculated as
+            -(np.ceil(MA_window/2) - 1), where -1 is used to included the last week in the training data.
+            Note that this expression could be reduced, but is not to keep the code more understandable.
+        """
         model_forecasts_rolling = pd.DataFrame(
             data = np.outer(
-                (mean_profile[week_indices_in_forecast]/mean_profile[week_indices_in_forecast][0]),
+                (mean_profile[week_indices_in_forecast]/mean_profile[week_indices_in_forecast[0] - 1 - (int(np.ceil(MA_window/2)) - 1)]),
                 projected_scales_rolling
                 ),
             columns = projected_scales_rolling.index)
