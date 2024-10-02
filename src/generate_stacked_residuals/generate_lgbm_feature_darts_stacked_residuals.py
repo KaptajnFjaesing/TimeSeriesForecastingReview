@@ -58,6 +58,6 @@ def generate_lgbm_feature_darts_stacked_residuals(
         data = np.einsum("i, ji -> ji", baseline, np.exp(np.cumsum(predictions, axis=0)))
         model_forecasts = pd.DataFrame(data = data, columns = time_series_column_group)
         residuals.append((df.iloc[-fh:].head(forecast_horizon)[time_series_column_group] - model_forecasts.set_index(df.iloc[-fh:].head(forecast_horizon).index)).reset_index(drop = True))
-    pd.concat(residuals, axis=0).to_pickle("./data/results/stacked_residuals_lgbm_darts_feature_eng.pkl")
+    pd.concat(residuals, axis=0).to_pickle("./data/results/stacked_residuals_lgbm_feature_darts.pkl")
 
 generate_lgbm_feature_darts_stacked_residuals()
