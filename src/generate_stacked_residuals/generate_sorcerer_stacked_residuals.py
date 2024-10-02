@@ -23,6 +23,7 @@ sampler_config_default = {
     "verbose": False
 }
 
+
 sampler_config_MAP = {
     "draws": 500,
     "tune": 200,
@@ -41,7 +42,7 @@ model_config_default = {
     "k_sigma_prior": 0.2,
     "fourier_mu_prior": 0,
     "fourier_sigma_prior": 1,
-    "precision_target_distribution_prior_alpha": 1000,
+    "precision_target_distribution_prior_alpha": 50,
     "precision_target_distribution_prior_beta": 0.1,
     "prior_probability_shared_seasonality_alpha": 1,
     "prior_probability_shared_seasonality_beta": 1,
@@ -62,15 +63,18 @@ def generate_forecast(fh, df, forecast_horizon, sampler_config, model_config, ti
     y_train_max = training_data[time_series_column_group].max()
 
     sorcerer = SorcererModel(
-        model_config=model_config,
-        model_name="SorcererModel",
-        model_version="v0.3.1"
+        model_config = model_config,
+        model_name = "SorcererModel",
+        model_version = "v0.4.1"
     )
 
     suppress_output(func=sorcerer.fit, training_data=training_data, sampler_config=sampler_config)
-    (preds_out_of_sample, model_preds) = suppress_output(sorcerer.sample_posterior_predictive, test_data=testing_data)
+    model_preds = suppress_output(sorcerer.sample_posterior_predictive, test_data = testing_data)
 
-    model_forecasts_unnormalized = pd.DataFrame(data=model_preds["target_distribution"].mean(("chain", "draw")), columns=time_series_column_group)
+    model_forecasts_unnormalized = pd.DataFrame(
+        data = model_preds["predictions"].mean(("chain", "draw")),
+        columns = time_series_column_group
+        )
     model_forecasts = model_forecasts_unnormalized * (y_train_max - y_train_min) + y_train_min
 
     return (testing_data[time_series_column_group]-model_forecasts.set_index(df.iloc[-fh:].head(forecast_horizon).index)).reset_index(drop = True)
