@@ -15,7 +15,7 @@ from joblib import Parallel, delayed
 
 sampler_config_default = {
     "draws": 500,
-    "tune": 100,
+    "tune": 300,
     "chains": 1,
     "cores": 1,
     "sampler": "NUTS",
@@ -42,16 +42,16 @@ model_config_default = {
     "k_sigma_prior": 0.2,
     "fourier_mu_prior": 0,
     "fourier_sigma_prior": 1,
-    "precision_target_distribution_prior_alpha": 50,
+    "precision_target_distribution_prior_alpha": 20,
     "precision_target_distribution_prior_beta": 0.1,
     "prior_probability_shared_seasonality_alpha": 1,
     "prior_probability_shared_seasonality_beta": 1,
     "individual_fourier_terms": [
-        {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year, 'number_of_fourier_components': 20}
+        {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year, 'number_of_fourier_components': 10}
     ],
     "shared_fourier_terms": [
-        {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year, 'number_of_fourier_components': 10},
-        {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year / 4, 'number_of_fourier_components': 3},
+        {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year, 'number_of_fourier_components': 8},
+        {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year / 4, 'number_of_fourier_components': 2},
         {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year / 12, 'number_of_fourier_components': 1},
     ]
 }
@@ -94,5 +94,5 @@ def generate_sorcerer_stacked_residuals(
 
     pd.concat(residuals, axis=0).to_pickle(f"./data/results/stacked_residuals_sorcerer_{sampler_config['sampler']}.pkl")
 
-generate_sorcerer_stacked_residuals(sampler_config=sampler_config_MAP)
+#generate_sorcerer_stacked_residuals(sampler_config=sampler_config_MAP)
 generate_sorcerer_stacked_residuals()
