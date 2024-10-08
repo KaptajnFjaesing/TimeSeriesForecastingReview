@@ -19,7 +19,7 @@ sampler_config_default = {
     "chains": 1,
     "cores": 1,
     "sampler": "NUTS",
-    "nuts_sampler": "numpyro",
+#    "nuts_sampler": "numpyro",
     "verbose": False
 }
 
@@ -29,7 +29,7 @@ sampler_config_MAP = {
     "chains": 1,
     "cores": 1,
     "sampler": "MAP",
-    "nuts_sampler": "numpyro",
+#s    "nuts_sampler": "numpyro",
     "verbose": False
 }
 
@@ -82,7 +82,7 @@ def generate_forecast(fh, df, forecast_horizon, sampler_config, model_config, ti
     suppress_output(tlp_regression_model.fit, X=x_train, y=y_train, sampler_config=sampler_config)
     model_preds = suppress_output(tlp_regression_model.sample_posterior_predictive, x_test=x_test)
 
-    model_forecasts_unnormalized = pd.DataFrame(data=model_preds["target_distribution"].mean(("chain", "draw")), columns=time_series_column_group)
+    model_forecasts_unnormalized = pd.DataFrame(data=model_preds["target_distribution"].median(("chain", "draw")), columns=time_series_column_group)
     model_forecasts = model_forecasts_unnormalized * (y_train_max - y_train_min) + y_train_min
 
     return (testing_data[time_series_column_group] - model_forecasts.set_index(df.iloc[-fh:].head(forecast_horizon).index)).reset_index(drop=True)

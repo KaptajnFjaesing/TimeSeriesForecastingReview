@@ -72,7 +72,7 @@ def generate_forecast(fh, df, forecast_horizon, sampler_config, model_config, ti
     model_preds = suppress_output(sorcerer.sample_posterior_predictive, test_data = testing_data)
 
     model_forecasts_unnormalized = pd.DataFrame(
-        data = model_preds["predictions"].mean(("chain", "draw")),
+        data = model_preds["predictions"].median(("chain", "draw")),
         columns = time_series_column_group
         )
     model_forecasts = model_forecasts_unnormalized * (y_train_max - y_train_min) + y_train_min
@@ -94,5 +94,5 @@ def generate_sorcerer_stacked_residuals(
 
     pd.concat(residuals, axis=0).to_pickle(f"./data/results/stacked_residuals_sorcerer_{sampler_config['sampler']}.pkl")
 
-#generate_sorcerer_stacked_residuals(sampler_config=sampler_config_MAP)
+generate_sorcerer_stacked_residuals(sampler_config=sampler_config_MAP)
 generate_sorcerer_stacked_residuals()
