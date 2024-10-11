@@ -34,7 +34,9 @@ name_mapping = {
     'lgbm_feature_darts': 'Light GBM Feature Darts Model',
     'xgboost_darts': 'XGBoost Darts Model',
     'abs_mean_gradient_training_data': 'abs_mean_gradient_training_data',
-    'deepar': 'DeepAR GluonTS'
+    'deepar': 'DeepAR GluonTS',
+    'naive_seasonal_darts': 'Naive Seasonal Darts',
+    'climatological_darts': 'Climatological Darts'
 }
 
 # Define a color mapping (optional)
@@ -55,7 +57,9 @@ color_mapping = {
     'lgbm_darts': 'yellow',
     'lgbm_feature_darts': 'darkorange',
     'xgboost_darts': 'silver',
-    'deepar': 'tomato'
+    'deepar': 'tomato',
+    'naive_seasonal_darts': 'darkgreen',
+    'climatological_darts': 'darkblue'
 }
 
 # Iterate through files in the results directory
