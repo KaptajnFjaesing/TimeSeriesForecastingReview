@@ -39,36 +39,24 @@ plt.show()
 
 # %%
 with pm.Model() as model:
-    
     X = pm.Data('input', x, dims = 'obs')
     Y = pm.Data('observations', y)
     slope = pm.Normal("slope", mu=0, sigma=1)
     intercept = pm.Normal("intercept", mu=0, sigma=5)
-    
-    # Likelihood (Gaussian noise)
     sigma = pm.HalfNormal("sigma", sigma=1)
-    
-    # Linear trend model
     mu = slope * X + intercept
-    
-    # Observed data likelihood
     y_obs = pm.Normal("y_obs", mu=mu, sigma=sigma, observed=Y, dims = 'obs')
 
 
 # %%
 with model:
-    # Inference (NUTS sampler)
-    trace = pm.sample(draws = 200, tune=100, cores = 1, chains = 1, return_inferencedata=True)
-
+    trace = pm.sample(draws = 200, tune = 100, cores = 1, chains = 1, return_inferencedata=True)
 
 #%%
-future_x = np.arange(n, n + 10)  # 10 time steps ahead
+future_x = np.arange(n, n + 10)
 with model:
     pm.set_data({"input": future_x})
     posterior_predictive = pm.sample_posterior_predictive(trace)
-
-
-
 #%%
 import arviz as az
 
@@ -112,11 +100,6 @@ plt.plot(thres, probabilities)
 
 # %%
 
-(sum_forecasts <= threshold).mean(('draw','chain'))
-
-
-# %%
-
 def swish(x, b):
     # Compute the exponential in a numerically stable way
     # np.clip is used to limit the values of b*x to avoid overflow
@@ -128,6 +111,17 @@ def cost_function(U, forecasts, H, h, k, psi, N0):
     b = 50
     Nt = N0 + np.cumsum(U)-np.cumsum(forecasts, axis=1)
     return k*np.dot(swish(Nt,b),H-t)+np.dot(swish(-Nt,b),psi)
+
+def expected_cost(U, forecasts, H, h, k, psi, N0):
+    return np.mean(cost_function(
+        U=U,
+        forecasts=forecasts,
+        H=H,
+        h=h,
+        k=k,
+        psi=psi,
+        N0=N0
+    ))
 
 h = len(future_x)
 
@@ -142,36 +136,27 @@ forecasts = posterior_predictive.posterior_predictive["y_obs"].mean('chain')
 
 
 # %%
-from scipy.optimize import minimize
 
-# Define a wrapper for the cost function to minimize
-def expected_cost(U, forecasts, H, h, k, psi, N0):
-    U_rounded = np.round(U).astype(int)
-    return np.mean(cost_function(
-        U=U_rounded,
-        forecasts=forecasts,
-        H=H,
-        h=h,
-        k=k,
-        psi=psi,
-        N0=N0
-    ))
+from scipy.optimize import dual_annealing
 
-# Initial guess for U
-U_initial = np.ones(h)
 
-# Constraints to ensure U are integers >= 0
-constraints = ({'type': 'ineq', 'fun': lambda U: U})  # Ensure U >= 0
+bounds = [(0, 20) for _ in range(h)]
 additional_args = (forecasts, H, h, k, psi, N0)
+result = dual_annealing(
+    expected_cost,
+    bounds = bounds,
+    args = additional_args,
+    maxiter = 1000
+)
 
-# Optimize
-result = minimize(expected_cost, U_initial, args = additional_args, constraints = constraints)
-
-# Round results to get integer actions
-optimal_U = np.round(result.x).astype(int)  # Convert to integers
+optimal_U = result.x
 print("Optimal Actions:", optimal_U)
 print("Minimum Expected Cost:", result.fun)
 
+
+
+
+#%%
 # Check the expected cost of a known action set
 expected_cost_check = np.mean(cost_function(
     U=[0, 0, 0, 0, 0, 0, 0, 0, 2, 10],
@@ -185,32 +170,6 @@ expected_cost_check = np.mean(cost_function(
 
 print("Expected Cost for [0, 0, 0, 0, 0, 0, 0, 0, 2, 10]:", expected_cost_check)
 
-"""
-Scope today: Make optimal_U != U_initial.
-"""
-
 # %%
 
-import numpy as np
-from scipy.optimize import minimize
-
-# Define the quadratic function to minimize
-def quadratic_function(x):
-    return (x - 3)**2 + 2
-
-# Initial guess for x
-x0 = np.array([0])  # Starting point
-
-# Define constraints (x must be greater than or equal to 0)
-constraints = ({'type': 'ineq', 'fun': lambda x: x})  # Ensure x >= 0
-
-# Minimize the function
-result = minimize(quadratic_function, x0, constraints=constraints)
-
-# Output the results
-optimal_x = result.x[0]  # Extract the optimal value of x
-minimum_value = result.fun  # Minimum function value
-
-print("Optimal x:", optimal_x)
-print("Minimum value:", minimum_value)
-
+(sum_forecasts <= threshold).mean(('draw','chain'))

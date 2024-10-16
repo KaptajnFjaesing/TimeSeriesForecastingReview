@@ -10,12 +10,6 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 
-from gluonts.dataset.pandas import PandasDataset
-from gluonts.dataset.util import to_pandas
-
-import os
-from pathlib import Path
-import pandas as pd
 import numpy as np
 
 from src.data_loader import load_m5_data
@@ -265,7 +259,7 @@ for index, item in tqdm(sales_train_validation.iterrows()):
     )
 
     train_ds.append(time_series.copy())
-
+#%%
 train_ds = ListDataset(train_ds, freq='1D')
 #%%
 from gluonts.dataset.common import load_datasets
@@ -397,24 +391,11 @@ import matplotlib.pyplot as plt
 def plot_prob_forecasts(ts_ent, forecast_ent):
     plot_length = 150
     prediction_intervals = (50.0, 70.0, 90.0)  # Adjust intervals as needed
-
-    # Create legend labels
-    legend = ["Observations", "Median Prediction"] + [
-        f"{k}% Prediction Interval" for k in prediction_intervals
-    ][::-1]
-
-    # Define colors for each quantile
     colors = ["green", "red", "brown"]  # Colors for different quantiles
     
     fig, ax = plt.subplots(1, 1, figsize=(10, 7))
-    
-    # Plot the observations
     ax.plot(ts_ent[-plot_length:].index.to_timestamp(), ts_ent[-plot_length:], color="blue", label="Observations")
-
-    # Plot the median prediction
     ax.plot(forecast_ent.index.to_timestamp(), forecast_ent.median, color="orange", label="Median Prediction")
-
-    # Calculate quantiles and plot fill areas with different colors
     quantiles = [(100.0 - k) / 100 for k in prediction_intervals]
     for i, q in enumerate(quantiles):
         lower_quantile = forecast_ent.quantile(q)
@@ -427,14 +408,12 @@ def plot_prob_forecasts(ts_ent, forecast_ent):
             alpha=0.8,
             label=f"{prediction_intervals[i]}% Prediction Interval"
         )
-
     plt.grid(which="both")
     plt.legend(loc="upper left")
     plt.title("Time Series Forecast with Prediction Intervals")
     plt.xlabel("Time")
     plt.ylabel("Value")
     plt.show()
-
 
 
 ct = 0
@@ -515,9 +494,9 @@ predictor_deepar = estimator_deepar.train(list(train_ds))
 #%%
 
 forecast_it, ts_it = make_evaluation_predictions(
-    dataset=test_ds,
-    predictor=predictor_deepar,
-    num_samples=100
+    dataset = test_ds,
+    predictor = predictor_deepar,
+    num_samples = 100
 )
 
 #%%
