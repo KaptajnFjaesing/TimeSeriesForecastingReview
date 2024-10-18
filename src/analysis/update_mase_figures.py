@@ -29,7 +29,6 @@ name_mapping = {
     'tlp_NUTS': 'TLP Regression Model (NUTS)',
     'naive_darts': 'Naive Darts Model',
     'tide_darts': 'TiDe Darts Model',
-    'tide_feature_darts': 'TiDe Feature Darts Model',
     'tft_darts': 'TFT Darts Model',
     'lgbm_darts': 'Light GBM darts Model',
     'lgbm_feature_darts': 'Light GBM Feature Darts Model',
@@ -54,7 +53,6 @@ color_mapping = {
     'tlp_NUTS': 'tab:pink',
     'naive_darts': 'black',
     'tide_darts': 'gold',
-    'tide_feature_darts': 'darkgreen',
     'tft_darts': 'darkred',
     'lgbm_darts': 'yellow',
     'lgbm_feature_darts': 'darkorange',
@@ -107,7 +105,7 @@ plt.ylabel('Avg MASE over time series', fontsize=14)
 plt.xlabel('Forecast horizon', fontsize=14)
 plt.legend(bbox_to_anchor=(1.05, 0.5), loc='center left', borderaxespad=0.)
 plt.tight_layout()
-# plt.savefig(r'.\docs\report\figures\avg_mase_over_time_series.pdf')
+plt.savefig(r'.\figures\avg_mase_over_time_series.png')
 
 # Plot error bars for MASE across models
 plt.figure(figsize=(8, 5))
@@ -122,5 +120,5 @@ plt.ylabel('Model', fontsize=14)
 plt.xlabel('Avg MASE over time series and forecast horizon', fontsize=14)
 plt.grid(visible=True, which='both', linewidth=0.6, color='gray', alpha=0.7)
 plt.tight_layout()
-# plt.savefig(r'.\docs\report\figures\avg_mase_over_time_series_and_forecast_horizon.pdf')
+plt.savefig(r'.\figures\avg_mase_over_time_series_and_forecast_horizon.png')
 

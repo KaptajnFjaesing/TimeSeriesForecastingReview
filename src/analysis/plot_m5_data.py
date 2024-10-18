@@ -26,5 +26,4 @@ for i in range(len(time_series_columns)):
     ax.set_xlabel('Time')
     ax.set_ylabel('Sales')
     ax.grid(True)
-    ax.legend()
-plt.savefig('./docs/report/figures/raw_data.pdf')
+plt.savefig('./figures/raw_data.png')
