@@ -10,7 +10,7 @@ import numpy as np
 import os
 
 # Define the directory containing the results
-results_dir = '../../data/results/'
+results_dir = 'data/results/'
 
 # Initialize the model data dictionary
 model_data = {}
