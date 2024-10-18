@@ -35,39 +35,40 @@ Let $f_{i,j,q}$ and $y_{i,j,q}$ denote the model forecast and data, respectively
         \frac{1}{N_{\text{training}}-1} \sum_{i=1}^{N_{\text{training}}} |y_{i-2,j} - y_{i,j}|
         }
 ```
- 
+where
 ```math
 N_{\text{training}} \equiv N - (N_{\text{ensemble}} + N_{\text{forecast horizon}}) - 1
 ```
 
 represents the part of the data that is common to all ensembles. To condense the information, the MASE can be averaged over time series
 
-$$
+```math
 \text{MASE}_i \equiv \frac{1}{N_{\text{time series}}} \sum_{j=1}^{N_{\text{time series}}} \text{MASE}_{i,j}
-$$
-
+```
 where
 
-$$
+```math
 \text{MASE}_i \equiv \text{Average MASE over time series}
-$$
+```
+
 
 and again over the forecast horizon
 
-$$
+```math
 \langle \text{MASE} \rangle \equiv \frac{1}{N_{\text{forecast horizon}} N_{\text{time series}}} \sum_{i=1}^{N_{\text{forecast horizon}}} \sum_{j=1}^{N_{\text{time series}}} \text{MASE}_{i,j}
-$$
+```
 
 where for shorthand
-$$
+
+```math
 \langle \text{MASE} \rangle \equiv \text{Average MASE over time series and forecast horizon}.
-$$
+```
 
 As a _rough_ estimate of uncertainty for this average MASE, the standard deviation of the average over time series is considered
 
-$$
+```math
 \delta \langle \text{MASE} \rangle = \sqrt{\frac{1}{N_{\text{forecast horizon}} - 1} \sum_{i=1}^{N_{\text{forecast horizon}}} (\text{MASE}_i - \langle \text{MASE} \rangle)^2}
-$$
+```
 
 This assumes the variation between time series can be neglected relative to the variation between forecast horizon steps. The uncertainty is intended to be a conservative estimate of the variance in the sample, rather than the uncertainty of the mean estimate (if the latter is intended, the variance in equation \eqref{eq:MASE_avg_series} and error propagation can be used).
 
