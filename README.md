@@ -12,9 +12,10 @@ To include models which scale less well in the review, this study focuses on the
 _Figure 1: Weekly Sales for Each Store-Category. The training/test split has veried during the analysis (see the metric section) and is therefore not shown._
 
 ## Metric
-In order to quantify and compare the accuracy of different forecasting algorithms, the Mean Absolute Scaled Error (MASE) is used:
+In order to quantify and compare the accuracy of different forecasting algorithms, the Mean Absolute Scaled Error (MASE) is used
+
 ```math
-\text{MASE} = \frac{\text{mean absolute forecasting error}}{\text{mean gradient in training data}}
+\text{MASE} = \frac{\text{mean absolute forecasting error}}{\text{mean gradient in training data}}.
 ```
 The mean gradient in the training data represents the average forecasting error when using the Naive forecast (predict the next timestep to be equal to the current), so the MASE represents how good a model is relative to this.
 
