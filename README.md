@@ -31,17 +31,21 @@ where $N$ is the number of data points in the time series (all have the same num
 Let $f_{i,j,q}$ and $y_{i,j,q}$ denote the model forecast and data, respectively, for time step $i$, time series $j$, and ensemble number $q$, then
 
 $$
-\text{MASE}_{i,j} = \frac{\frac{1}{N_{\text{ensemble}}} \sum_{q=1}^{N_{\text{ensemble}}} |f_{i,j,q} - y_{i,j,q}|}{\frac{1}{N_{\text{training}}-1} \sum_{i=1}^{N_{\text{training}}} |y_{i-2,j} - y_{i,j}|}
+\text{MASE}_{i,j} = \frac{
+    \frac{1}{N_{\text{ensemble}}} \sum_{q=1}^{N_{\text{ensemble}}} |f_{i,j,q} - y_{i,j,q}|
+    }{
+        \frac{1}{N_{\text{training}}-1} \sum_{i=1}^{N_{\text{training}}} |y_{i-2,j} - y_{i,j}|
+        }
 $$
  
 $$
 N_{\text{training}} \equiv N - (N_{\text{ensemble}} + N_{\text{forecast horizon}}) - 1
 $$
 
-represents the part of the data that is common to all ensembles. To condense the information, the MASE can be averaged over time series:
+represents the part of the data that is common to all ensembles. To condense the information, the MASE can be averaged over time series
 
 $$
-\text{MASE}_i \equiv \frac{1}{N_{\text{time series}}} \sum_{j=1}^{N_{\text{time series}}} \text{MASE}_{i,j}
+\text{MASE}_{i} \equiv \frac{1}{N_{\text{time series}}} \sum_{j=1}^{N_{\text{time series}}} \text{MASE}_{i,j}
 $$
 
 where
