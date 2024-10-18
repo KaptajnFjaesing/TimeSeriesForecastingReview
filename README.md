@@ -9,7 +9,7 @@ For this study, an aggregated version of the M5 dataset, a widely recognized dat
 To include models which scale less well in the review, this study focuses on the weekly aggregated sales data for a particular store-category combination, specifically household sales. The time range of interest spans from 2011 to 2016 (see figure 1) with sales for each week.
 
 ![Weekly Sales for Each Store-Category](./figures/raw_data.png)
-_Figure 1: Weekly Sales for Each Store-Category_
+_Figure 1: Weekly Sales for Each Store-Category. The training/test split has veried during the analysis (see the metric section) and is therefore not shown._
 
 ## Metric
 In order to quantify and compare the accuracy of different forecasting algorithms, the Mean Absolute Scaled Error (MASE) is used:
@@ -33,14 +33,19 @@ Let $f_{i,j,q}$ and $y_{i,j,q}$ denote the model forecast and data, respectively
 $$
 \text{MASE}_{i,j} = \frac{\frac{1}{N_{\text{ensemble}}} \sum_{q=1}^{N_{\text{ensemble}}} |f_{i,j,q} - y_{i,j,q}|}{\frac{1}{N_{\text{training}}-1} \sum_{i=1}^{N_{\text{training}}} |y_{i-2,j} - y_{i,j}|}
 $$
+
 $$
 N_{\text{training}} \equiv N - (N_{\text{ensemble}} + N_{\text{forecast horizon}}) - 1
 $$
+
 represents the part of the data that is common to all ensembles. To condense the information, the MASE can be averaged over time series:
+
 $$
 \text{MASE}_i \equiv \frac{1}{N_{\text{time series}}} \sum_{j=1}^{N_{\text{time series}}} \text{MASE}_{i,j}
 $$
+
 where
+
 $$
 \text{MASE}_i \equiv \text{Average MASE over time series}
 $$
@@ -68,10 +73,10 @@ This assumes the variation between time series can be neglected relative to the 
 ## Results
 
 ![Average MASE Over Time Series and Forecast Horizon](./figures/avg_mase_over_time_series_and_forecast_horizon.png)
-_Figure 1: Average MASE Over Time Series and Forecast Horizon_
+_Figure 1: Average MASE Over Time Series and Forecast Horizon._
 
 ![Average MASE Over Time Series](./figures/avg_mase_over_time_series.png)
-_Figure 2: Average MASE Over Time Series_
+_Figure 2: Average MASE Over Time Series._
 
 
  
