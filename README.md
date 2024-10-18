@@ -13,39 +13,37 @@ _Figure 1: Weekly Sales for Each Store-Category. The training/test split has ver
 
 ## Metric
 In order to quantify and compare the accuracy of different forecasting algorithms, the Mean Absolute Scaled Error (MASE) is used:
-
-$$
+```math
 \text{MASE} = \frac{\text{mean absolute forecasting error}}{\text{mean gradient in training data}}
-$$
-
+```
 The mean gradient in the training data represents the average forecasting error when using the Naive forecast (predict the next timestep to be equal to the current), so the MASE represents how good a model is relative to this.
 
 This study will consider simultaneous forecasting of ten time series ($N_{\text{time series}} = 10$) over a forecast horizon of 26 weeks ($N_{\text{forecast horizon}} = 26$), and so a bit of notation must be introduced to handle this. In order to produce a robust estimate of the MASE, an ensemble of $N_{\text{ensemble}}=50$ forecasts are considered. The ensemble is produced by producing forecasts for each element in the interval
 
-$$
+```math
 [N-(N_{\text{ensemble}} + N_{\text{forecast horizon}}), N - N_{\text{forecast horizon}}]
-$$
+```
 
 where $N$ is the number of data points in the time series (all have the same number of data points for simplicity). For each time step in the forecast horizon, there will therefore be $N_{\text{ensemble}}$ values from which to determine a MASE for each time series and forecast time step.
 
 Let $f_{i,j,q}$ and $y_{i,j,q}$ denote the model forecast and data, respectively, for time step $i$, time series $j$, and ensemble number $q$, then
 
-$$
+```math
 \text{MASE}_{i,j} = \frac{
     \frac{1}{N_{\text{ensemble}}} \sum_{q=1}^{N_{\text{ensemble}}} |f_{i,j,q} - y_{i,j,q}|
     }{
         \frac{1}{N_{\text{training}}-1} \sum_{i=1}^{N_{\text{training}}} |y_{i-2,j} - y_{i,j}|
         }
-$$
+```
  
-$$
+```math
 N_{\text{training}} \equiv N - (N_{\text{ensemble}} + N_{\text{forecast horizon}}) - 1
-$$
+```
 
 represents the part of the data that is common to all ensembles. To condense the information, the MASE can be averaged over time series
 
 $$
-\text{MASE}_{i} \equiv \frac{1}{N_{\text{time series}}} \sum_{j=1}^{N_{\text{time series}}} \text{MASE}_{i,j}
+\text{MASE}_i \equiv \frac{1}{N_{\text{time series}}} \sum_{j=1}^{N_{\text{time series}}} \text{MASE}_{i,j}
 $$
 
 where
@@ -54,18 +52,18 @@ $$
 \text{MASE}_i \equiv \text{Average MASE over time series}
 $$
 
-and again over the forecast horizon:
+and again over the forecast horizon
 
 $$
 \langle \text{MASE} \rangle \equiv \frac{1}{N_{\text{forecast horizon}} N_{\text{time series}}} \sum_{i=1}^{N_{\text{forecast horizon}}} \sum_{j=1}^{N_{\text{time series}}} \text{MASE}_{i,j}
 $$
 
-where for shorthand:
+where for shorthand
 $$
 \langle \text{MASE} \rangle \equiv \text{Average MASE over time series and forecast horizon}.
 $$
 
-As a _rough_ estimate of uncertainty for this average MASE, the standard deviation of the average over time series is considered:
+As a _rough_ estimate of uncertainty for this average MASE, the standard deviation of the average over time series is considered
 
 $$
 \delta \langle \text{MASE} \rangle = \sqrt{\frac{1}{N_{\text{forecast horizon}} - 1} \sum_{i=1}^{N_{\text{forecast horizon}}} (\text{MASE}_i - \langle \text{MASE} \rangle)^2}
