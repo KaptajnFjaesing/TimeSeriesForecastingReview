@@ -6,3 +6,4 @@ data/sell_prices.csv
 src/__pycache__/
 data/pymc_traces/
 .venv
+.vscode
