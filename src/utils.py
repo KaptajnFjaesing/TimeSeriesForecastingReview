@@ -3,10 +3,10 @@ Created on Wed Sep 11 13:25:03 2024
 
 @author: Jonas Petersen
 """
+#%%
 import pandas as pd
 import datetime
 import numpy as np
-
 
 class CustomBackTransformation:
     def __init__(self, constants0,consants1):
@@ -26,3 +26,5 @@ def suppress_output(func, *args, **kwargs):
         result = func(*args, **kwargs)
     return result
 
+
+# %%
