@@ -10,6 +10,7 @@ import numpy as np
 import lightgbm as lgbm
 
 import src.generate_stacked_residuals.global_model_parameters as gmp
+from src.utils import log_execution_time
 
 model_config_default = {
     'verbose': -1,
@@ -126,4 +127,8 @@ def generate_lgbm_basic_stacked_residuals(
         residuals.append((test_data-model_forecasts.set_index(df.iloc[-fh:].head(forecast_horizon).index)).reset_index(drop = True))
     pd.concat(residuals, axis=0).to_pickle('./data/results/stacked_residuals_lgbm_basic.pkl')
 
-generate_lgbm_basic_stacked_residuals()
+log_execution_time(
+    generate_lgbm_basic_stacked_residuals,
+    gmp.log_file,
+    "generate_lgbm_basic_stacked_residuals"
+)

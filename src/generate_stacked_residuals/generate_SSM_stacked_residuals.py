@@ -11,7 +11,7 @@ from joblib import Parallel, delayed
 
 from src.utils import suppress_output
 import src.generate_stacked_residuals.global_model_parameters as gmp
-
+from src.utils import log_execution_time
 
 model_config_default = {
     'freq_seasonal': [{
@@ -47,10 +47,14 @@ def generate_SSM_stacked_residuals(
         model_config: dict = model_config_default
         ):
     time_series_column_group = [x for x in df.columns if 'HOUSEHOLD' in x]
-    residuals = Parallel(n_jobs=10)(delayed(generate_forecast)(
+    residuals = Parallel(n_jobs=gmp.n_jobs)(delayed(generate_forecast)(
         fh, df, forecast_horizon, model_config, time_series_column_group
     ) for fh in tqdm(range(forecast_horizon, forecast_horizon + simulated_number_of_forecasts), desc='generate_SSM_stacked_residuals'))
 
     pd.concat(residuals, axis=0).to_pickle('./data/results/stacked_residuals_statespace.pkl')
 
-generate_SSM_stacked_residuals()
+log_execution_time(
+    generate_SSM_stacked_residuals,
+    gmp.log_file,
+    "generate_statespace_stacked_residuals"
+)

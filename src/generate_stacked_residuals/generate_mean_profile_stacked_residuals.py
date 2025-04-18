@@ -9,6 +9,7 @@ import pandas as pd
 from tqdm import tqdm
 
 import src.generate_stacked_residuals.global_model_parameters as gmp
+from src.utils import log_execution_time
 
 def generate_mean_profile(df, seasonality_period): 
     df_temp = df.copy(deep=True)
@@ -87,4 +88,8 @@ def generate_mean_profile_stacked_residuals(
     pd.concat(residuals_static, axis=0).to_pickle('./data/results/stacked_residuals_static_mean.pkl')
     pd.concat(residuals_rolling, axis=0).to_pickle('./data/results/stacked_residuals_rolling_mean.pkl')
 
-generate_mean_profile_stacked_residuals()
+log_execution_time(
+    generate_mean_profile_stacked_residuals,
+    gmp.log_file,
+    "generate_mean_profile_stacked_residuals"
+)

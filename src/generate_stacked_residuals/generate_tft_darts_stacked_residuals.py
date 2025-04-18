@@ -19,7 +19,7 @@ logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
 
 from src.utils import suppress_output
 import src.generate_stacked_residuals.global_model_parameters as gmp
-
+from src.utils import log_execution_time
 
 model_config_default = {
     'input_chunk_length': 64,
@@ -83,9 +83,13 @@ def generate_tft_darts_stacked_residuals(
     residuals = []
     target_columns = [x +'_log_diff' for x in time_series_column_group]
     feature_columns = [f'{x}_{i}' for x in time_series_column_group for i in range(1, gmp.context_length)]+['time_sine']
-    residuals = Parallel(n_jobs=2)(delayed(generate_forecast)(
+    residuals = Parallel(n_jobs=gmp.n_jobs)(delayed(generate_forecast)(
         fh, df, df_features, forecast_horizon, model_config, time_series_column_group, target_columns, feature_columns
     ) for fh in tqdm(range(forecast_horizon, forecast_horizon + simulated_number_of_forecasts), desc='generate_SSM_stacked_residuals'))
     pd.concat(residuals, axis=0).to_pickle("./data/results/stacked_residuals_tft_darts.pkl")
 
-generate_tft_darts_stacked_residuals()
+log_execution_time(
+    generate_tft_darts_stacked_residuals,
+    gmp.log_file,
+    "generate_tft_darts_stacked_residuals"
+)

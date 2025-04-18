@@ -3,20 +3,19 @@ Created on Wed Sep 25 12:34:43 2024
 
 @author: Jonas Petersen
 """
-
 from tqdm import tqdm
 import pandas as pd
 import darts.models as dm
 from darts import TimeSeries
 
 import src.generate_stacked_residuals.global_model_parameters as gmp
-
+from src.utils import log_execution_time
 
 model_config_default = {
     'lags': gmp.context_length,
-    'n_estimators': 100,
+    'n_estimators': 300,
     'learning_rate': 0.01,
-    'max_depth': 60,
+    'max_depth': 10,
     'random_state': 42
     }
 
@@ -35,4 +34,8 @@ def generate_xgboost_darts_stacked_residuals(
         residuals.append((df.iloc[-fh:].head(forecast_horizon)[time_series_column_group]-model_forecasts.set_index(df.iloc[-fh:].head(forecast_horizon).index)).reset_index(drop = True))
     pd.concat(residuals, axis=0).to_pickle("./data/results/stacked_residuals_xgboost_darts.pkl")
 
-generate_xgboost_darts_stacked_residuals()
+log_execution_time(
+    generate_xgboost_darts_stacked_residuals,
+    gmp.log_file,
+    "generate_xgboost_darts_stacked_residuals"
+)

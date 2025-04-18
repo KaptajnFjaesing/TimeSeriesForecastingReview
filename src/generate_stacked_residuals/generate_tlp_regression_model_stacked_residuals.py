@@ -10,6 +10,8 @@ import pandas as pd
 from tlp_regression.tlp_regression_model import TlpRegressionModel
 from src.utils import suppress_output
 import src.generate_stacked_residuals.global_model_parameters as gmp
+from src.utils import log_execution_time
+
 from joblib import Parallel, delayed
 
 
@@ -101,15 +103,20 @@ def generate_tlp_regression_model_stacked_residuals(
     df_time_series.loc[:, "month"] = np.sin(2*np.pi*df_time_series["date"].dt.month / 12)
     df_time_series.loc[:, "quarter"] = np.sin(2*np.pi*df_time_series["date"].dt.quarter / 4)
 
-    residuals = Parallel(n_jobs=10)(delayed(generate_forecast)(
+    residuals = Parallel(n_jobs=gmp.n_jobs)(delayed(generate_forecast)(
         fh, df_time_series, forecast_horizon, sampler_config, model_config, time_series_column_group
     ) for fh in tqdm(range(forecast_horizon, forecast_horizon + simulated_number_of_forecasts), desc='generate_tlp_regression_model_stacked_residuals'))
 
     pd.concat(residuals, axis=0).to_pickle(f"./data/results/stacked_residuals_tlp_{sampler_config['sampler']}.pkl")
 
+log_execution_time(
+    lambda: generate_tlp_regression_model_stacked_residuals(sampler_config=sampler_config_MAP),
+    gmp.log_file,
+    "generate_tlp_MAP_regression_model_stacked_residuals"
+)
 
-# Running with MAP sampler
-generate_tlp_regression_model_stacked_residuals(sampler_config=sampler_config_MAP)
-
-# Running with default sampler config
-generate_tlp_regression_model_stacked_residuals()
+log_execution_time(
+    lambda: generate_tlp_regression_model_stacked_residuals(),
+    gmp.log_file,
+    "generate_tlp_NUTS_regression_model_stacked_residuals"
+)

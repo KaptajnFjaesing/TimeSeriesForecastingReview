@@ -9,7 +9,7 @@ import lightgbm as lgbm
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 
 import src.generate_stacked_residuals.global_model_parameters as gmp
-
+from src.utils import log_execution_time
 
 model_config_default = {
     "max_depth": [7, 10],
@@ -64,4 +64,8 @@ def generate_lgbm_w_sklearn_stacked_residuals(
         residuals.append((testing_data[time_series_column_group]-model_forecasts.set_index(df.iloc[-fh:].head(forecast_horizon).index)).reset_index(drop = True))
     pd.concat(residuals, axis=0).to_pickle('./data/results/stacked_residuals_lgbm_sklearn.pkl')
 
-generate_lgbm_w_sklearn_stacked_residuals()
+log_execution_time(
+    generate_lgbm_w_sklearn_stacked_residuals,
+    gmp.log_file,
+    "generate_lgbm_sklearn_stacked_residuals"
+)

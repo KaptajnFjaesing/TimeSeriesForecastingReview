@@ -10,6 +10,7 @@ from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
 from src.utils import suppress_output
 import src.generate_stacked_residuals.global_model_parameters as gmp
+from src.utils import log_execution_time
 
 model_config_default = {
     'seasonal': 'add',
@@ -41,4 +42,8 @@ def generate_exponential_smoothing_stacked_residuals(
         residuals.append((test_data-model_forecasts.set_index(df.iloc[-fh:].head(forecast_horizon).index)).reset_index(drop = True))
     pd.concat(residuals, axis=0).to_pickle('./data/results/stacked_residuals_exponential_smoothing.pkl')
 
-generate_exponential_smoothing_stacked_residuals()
+log_execution_time(
+    generate_exponential_smoothing_stacked_residuals,
+    gmp.log_file,
+    "generate_exponential_smoothing_stacked_residuals"
+)

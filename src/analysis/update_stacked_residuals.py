@@ -17,20 +17,29 @@ if __name__ == "__main__":
         import src.generate_stacked_residuals.generate_lgbm_basic_stacked_residuals
         import src.generate_stacked_residuals.generate_lgbm_darts_stacked_residuals
         import src.generate_stacked_residuals.generate_lgbm_w_sklearn_stacked_residuals
+        import src.generate_stacked_residuals.generate_lgbm_feature_darts_stacked_residuals
     if 'mean' in args.models:
         import src.generate_stacked_residuals.generate_mean_profile_stacked_residuals
     if 'naive' in args.models:
         import src.generate_stacked_residuals.generate_naive_darts_stacked_residuals
+        import src.generate_stacked_residuals.generate_naive_seasonal_darts_stacked_residuals
     if 'ssm' in args.models:
         import src.generate_stacked_residuals.generate_SSM_stacked_residuals
     if 'tide' in args.models:
         import src.generate_stacked_residuals.generate_tide_darts_stacked_residuals
+        import src.generate_stacked_residuals.generate_tide_feature_darts_stacked_residuals
     if 'xgboost' in args.models:
         import src.generate_stacked_residuals.generate_xgboost_darts_stacked_residuals
     if 'sorcerer' in args.models:
         import src.generate_stacked_residuals.generate_sorcerer_stacked_residuals
     if 'tlp' in args.models:
         import src.generate_stacked_residuals.generate_tlp_regression_model_stacked_residuals
+    if 'deepar' in args.models:
+        import src.generate_stacked_residuals.generate_deepar_stacked_residuals
+    if 'climatological' in args.models:
+        import src.generate_stacked_residuals.generate_climatological_darts_stacked_residuals
+    if 'tft' in args.models:
+        import src.generate_stacked_residuals.generate_tft_darts_stacked_residuals
     if 'all' in args.models:
         import src.generate_stacked_residuals.generate_exponential_smoothing_stacked_residuals
         import src.generate_stacked_residuals.generate_lgbm_basic_stacked_residuals
@@ -42,4 +51,10 @@ if __name__ == "__main__":
         import src.generate_stacked_residuals.generate_tide_darts_stacked_residuals
         import src.generate_stacked_residuals.generate_xgboost_darts_stacked_residuals
         import src.generate_stacked_residuals.generate_sorcerer_stacked_residuals
-        import src.generate_stacked_residuals.generate_tlp_regression_model_stacked_residuals        
+        import src.generate_stacked_residuals.generate_tlp_regression_model_stacked_residuals
+        import src.generate_stacked_residuals.generate_deepar_stacked_residuals
+        import src.generate_stacked_residuals.generate_climatological_darts_stacked_residuals
+        import src.generate_stacked_residuals.generate_lgbm_feature_darts_stacked_residuals
+        import src.generate_stacked_residuals.generate_naive_seasonal_darts_stacked_residuals
+        import src.generate_stacked_residuals.generate_tft_darts_stacked_residuals
+        import src.generate_stacked_residuals.generate_tide_feature_darts_stacked_residuals

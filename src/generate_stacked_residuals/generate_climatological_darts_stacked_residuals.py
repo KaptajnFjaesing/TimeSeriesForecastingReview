@@ -13,6 +13,7 @@ from darts import TimeSeries
 from darts.models.forecasting.forecasting_model import ForecastingModel
 
 from src.utils import suppress_output
+from src.utils import log_execution_time
 import src.generate_stacked_residuals.global_model_parameters as gmp
 
 
@@ -59,5 +60,10 @@ def generate_climatological_darts_stacked_residuals(
             model_forecasts[time_series_column] = predictions.values().squeeze()
         residuals.append((df.iloc[-fh:].head(forecast_horizon)[time_series_column_group]-model_forecasts.set_index(df.iloc[-fh:].head(forecast_horizon).index)).reset_index(drop = True))
     pd.concat(residuals, axis=0).to_pickle("./data/results/stacked_residuals_climatological_darts.pkl")
+    print("generate_climatological_darts_stacked_residuals completed")
 
-generate_climatological_darts_stacked_residuals()
+log_execution_time(
+    generate_climatological_darts_stacked_residuals,
+    gmp.log_file,
+    "generate_climatological_darts_stacked_residuals"
+)

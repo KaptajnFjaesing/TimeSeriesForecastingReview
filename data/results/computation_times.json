@@ -1,0 +1,22 @@
+{
+    "generate_abs_mean_gradient_training_data": 0.00446772575378418,
+    "generate_climatological_darts_stacked_residuals": 2.8262321949005127,
+    "generate_statespace_stacked_residuals": 94.66664934158325,
+    "generate_xgboost_darts_stacked_residuals": 1279.733388185501,
+    "generate_tide_feature_darts_stacked_residuals": 185.0121250152588,
+    "generate_exponential_smoothing_stacked_residuals": 41.66303610801697,
+    "generate_lgbm_basic_stacked_residuals": 114.09072613716125,
+    "generate_lgbm_darts_stacked_residuals": 27.921610832214355,
+    "generate_lgbm_sklearn_stacked_residuals": 454.8279378414154,
+    "generate_mean_profile_stacked_residuals": 0.6141932010650635,
+    "generate_naive_darts_stacked_residuals": 0.2684814929962158,
+    "generate_sorcerer_MAP_stacked_residuals": 148.87451934814453,
+    "generate_sorcerer_NUTS_stacked_residuals": 343.5427176952362,
+    "generate_tide_darts_stacked_residuals": 428.47926235198975,
+    "generate_naive_seasonal_darts_stacked_residuals": 0.2859804630279541,
+    "generate_lgbm_feature_darts_stacked_residuals": 28.277756929397583,
+    "generate_tft_darts_stacked_residuals": 177.80811858177185,
+    "generate_tlp_MAP_regression_model_stacked_residuals": 36.61961317062378,
+    "generate_tlp_NUTS_regression_model_stacked_residuals": 147.80641078948975,
+    "generate_deepar_stacked_residuals": 1088.1924049854279
+}

@@ -19,7 +19,7 @@ logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
 
 from src.utils import suppress_output
 import src.generate_stacked_residuals.global_model_parameters as gmp
-
+from src.utils import log_execution_time
 
 model_config_default = {
     'input_chunk_length': 64,
@@ -69,8 +69,6 @@ def generate_forecast(fh, df, df_features, forecast_horizon, model_config, time_
     x_test = df_features[feature_columns + ['date']].iloc[-fh:].head(forecast_horizon)
     baseline = df_features[time_series_column_group].loc[x_test.index[0] - 1]
     tide_model = dm.TiDEModel(**model_config, output_chunk_length = forecast_horizon)
-    # future_covariates = TimeSeries.from_dataframe(pd.concat([x_train[['date', 'time_sine']], x_test[['date', 'time_sine']]]), 'date')
-    # past_covariates = TimeSeries.from_dataframe(x_train[[x for x in x_train.columns if x != 'time_sine']], 'date')
     suppress_output(tide_model.fit, TimeSeries.from_dataframe(y_train, 'date'))
     predictions = suppress_output(tide_model.predict, forecast_horizon).values()
     data = np.einsum("i, ji -> ji", baseline, np.exp(np.cumsum(predictions, axis=0)))
@@ -89,9 +87,13 @@ def generate_tide_feature_darts_stacked_residuals(
     residuals = []
     target_columns = [x +'_log_diff' for x in time_series_column_group]
     feature_columns = [f'{x}_{i}' for x in time_series_column_group for i in range(1, gmp.context_length)]+['time_sine']
-    residuals = Parallel(n_jobs=2)(delayed(generate_forecast)(
+    residuals = Parallel(n_jobs=gmp.n_jobs)(delayed(generate_forecast)(
         fh, df, df_features, forecast_horizon, model_config, time_series_column_group, target_columns, feature_columns
     ) for fh in tqdm(range(forecast_horizon, forecast_horizon + simulated_number_of_forecasts), desc='generate_SSM_stacked_residuals'))
     pd.concat(residuals, axis=0).to_pickle("./data/results/stacked_residuals_tide_feature_darts.pkl")
 
-generate_tide_feature_darts_stacked_residuals()
+log_execution_time(
+    generate_tide_feature_darts_stacked_residuals,
+    gmp.log_file,
+    "generate_tide_feature_darts_stacked_residuals"
+)
