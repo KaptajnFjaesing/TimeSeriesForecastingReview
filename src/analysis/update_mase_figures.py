@@ -30,7 +30,7 @@ name_mapping = {
     'lgbm_sklearn': 'Light GBM w. sklearn',
     'tlp_MAP': 'TLP Regression Model (MAP)',
     'tlp_NUTS': 'TLP Regression Model (NUTS)',
-    'naive_darts': 'Naive Darts Model',
+    'naive_darts': 'Naive Drift Darts Model',
     'tide_darts': 'TiDe Darts Model',
     'tft_darts': 'TFT Darts Model',
     'lgbm_darts': 'Light GBM darts Model',

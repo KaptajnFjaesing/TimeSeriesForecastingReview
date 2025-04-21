@@ -51,8 +51,8 @@ model_config_default = {
     ],
     "shared_fourier_terms": [
         {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year,'number_of_fourier_components': 8},
-        {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year/4,'number_of_fourier_components': 2},
-        {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year/12,'number_of_fourier_components': 1},
+        {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year/4,'number_of_fourier_components': 4},
+        {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year/12,'number_of_fourier_components': 2},
     ]
 }
 
@@ -68,13 +68,8 @@ def generate_forecast(fh, df, forecast_horizon, sampler_config, model_config, ti
         model_version = "v0.4.1"
     )
     suppress_output(func=sorcerer.fit, training_data=training_data, sampler_config=sampler_config)
-    model_preds = suppress_output(sorcerer.sample_posterior_predictive, test_data = testing_data)
-    model_forecasts_unnormalized = pd.DataFrame(
-        data = model_preds["predictions"].median(("chain", "draw")),
-        columns = time_series_column_group
-        )
-    model_forecasts = model_forecasts_unnormalized * (y_train_max - y_train_min) + y_train_min
-    return (testing_data[time_series_column_group]-model_forecasts.set_index(df.iloc[-fh:].head(forecast_horizon).index)).reset_index(drop = True)
+    model_forecasts = suppress_output(sorcerer.point_estimate, test_data = testing_data, point_estimate="median")
+    return (testing_data.reset_index(drop = True)-model_forecasts)[time_series_column_group]
 
 def generate_sorcerer_stacked_residuals(
         df: pd.DataFrame = gmp.df,
