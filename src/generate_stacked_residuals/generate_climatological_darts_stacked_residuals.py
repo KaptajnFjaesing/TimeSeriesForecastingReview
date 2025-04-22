@@ -56,8 +56,8 @@ def generate_climatological_darts_stacked_residuals(
         for time_series_column in time_series_column_group:
             model = Climatological()
             suppress_output(model.fit, TimeSeries.from_dataframe(df.iloc[:-fh][['date', time_series_column]], 'date'))
-            predictions = model.predict(n = forecast_horizon, num_samples = 100)
-            model_forecasts[time_series_column] = predictions.values().squeeze()
+            predictions = model.predict(n = forecast_horizon, num_samples = 1000)
+            model_forecasts[time_series_column] = predictions.all_values()[:,0].mean(axis = 1)
         residuals.append((df.iloc[-fh:].head(forecast_horizon)[time_series_column_group]-model_forecasts.set_index(df.iloc[-fh:].head(forecast_horizon).index)).reset_index(drop = True))
     pd.concat(residuals, axis=0).to_pickle("./data/results/stacked_residuals_climatological_darts.pkl")
     print("generate_climatological_darts_stacked_residuals completed")

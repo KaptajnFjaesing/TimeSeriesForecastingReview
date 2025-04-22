@@ -1,6 +1,6 @@
 {
     "generate_abs_mean_gradient_training_data": 0.00446772575378418,
-    "generate_climatological_darts_stacked_residuals": 2.8262321949005127,
+    "generate_climatological_darts_stacked_residuals": 2.9460885524749756,
     "generate_statespace_stacked_residuals": 94.66664934158325,
     "generate_xgboost_darts_stacked_residuals": 1279.733388185501,
     "generate_tide_feature_darts_stacked_residuals": 185.0121250152588,
