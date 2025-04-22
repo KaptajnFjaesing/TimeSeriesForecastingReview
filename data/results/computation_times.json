@@ -10,13 +10,14 @@
     "generate_lgbm_sklearn_stacked_residuals": 454.8279378414154,
     "generate_mean_profile_stacked_residuals": 0.6141932010650635,
     "generate_naive_darts_stacked_residuals": 0.2684814929962158,
-    "generate_sorcerer_MAP_stacked_residuals": 156.09545612335205,
-    "generate_sorcerer_NUTS_stacked_residuals": 321.3030242919922,
+    "generate_sorcerer_MAP_stacked_residuals": 58.473692655563354,
+    "generate_sorcerer_NUTS_stacked_residuals": 811.7061545848846,
     "generate_tide_darts_stacked_residuals": 428.47926235198975,
     "generate_naive_seasonal_darts_stacked_residuals": 0.2859804630279541,
     "generate_lgbm_feature_darts_stacked_residuals": 28.277756929397583,
     "generate_tft_darts_stacked_residuals": 177.80811858177185,
     "generate_tlp_MAP_regression_model_stacked_residuals": 36.61961317062378,
     "generate_tlp_NUTS_regression_model_stacked_residuals": 147.80641078948975,
-    "generate_deepar_stacked_residuals": 1088.1924049854279
+    "generate_deepar_stacked_residuals": 1088.1924049854279,
+    "generate_naive_no_drift_stacked_residuals": 0.31476712226867676
 }

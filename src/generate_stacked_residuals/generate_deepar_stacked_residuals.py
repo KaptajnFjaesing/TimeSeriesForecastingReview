@@ -47,7 +47,7 @@ def generate_deepar_stacked_residuals(
         forecast_horizon: int = gmp.forecast_horizon,
         simulated_number_of_forecasts: int = gmp.simulated_number_of_forecasts,
         model_config: dict = model_config_default
-        ):
+        ) -> None:
     df_temp = df.copy(deep=True)
     df_temp.set_index('date', inplace=True, drop=True)
     full_index = pd.date_range(start=df_temp.index.min(), end=df_temp.index.max(), freq='W-MON')

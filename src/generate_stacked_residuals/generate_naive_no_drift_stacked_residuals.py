@@ -12,22 +12,22 @@ from darts import TimeSeries
 import src.generate_stacked_residuals.global_model_parameters as gmp
 from src.utils import log_execution_time
 
-def generate_naive_darts_stacked_residuals(
+def generate_naive_no_drift_stacked_residuals(
         df: pd.DataFrame = gmp.df,
         forecast_horizon: int = gmp.forecast_horizon,
         simulated_number_of_forecasts: int = gmp.simulated_number_of_forecasts
         ) -> None:
-    naive_model = dm.NaiveDrift()
+    naive_model = dm.NaiveSeasonal(K=1)  # Simple naive forecast
     time_series_column_group = [x for x in df.columns if 'HOUSEHOLD' in x]
     residuals = []
-    for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts), desc = 'generate_naive_darts_stacked_residuals'):
+    for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts), desc = 'generate_naive_no_drift_stacked_residuals'):
         naive_model.fit(TimeSeries.from_dataframe(df.iloc[:-fh], 'date'))
         model_forecasts = pd.DataFrame(data = naive_model.predict(forecast_horizon).values(), columns = time_series_column_group)
         residuals.append((df.iloc[-fh:].head(forecast_horizon)[time_series_column_group]-model_forecasts.set_index(df.iloc[-fh:].head(forecast_horizon).index)).reset_index(drop = True))
-    pd.concat(residuals, axis=0).to_pickle("./data/results/stacked_residuals_naive_darts.pkl")
+    pd.concat(residuals, axis=0).to_pickle("./data/results/stacked_residuals_naive_no_drift.pkl")
 
 log_execution_time(
-    generate_naive_darts_stacked_residuals,
+    generate_naive_no_drift_stacked_residuals,
     gmp.log_file,
-    "generate_naive_darts_stacked_residuals"
+    "generate_naive_no_drift_stacked_residuals"
 )

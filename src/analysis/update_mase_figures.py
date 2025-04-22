@@ -3,7 +3,7 @@ Created on Mon Sep 23 08:25:47 2024
 
 @author: Jonas Petersen
 """
-
+#%%
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,23 +24,25 @@ name_mapping = {
     'rolling_mean': 'Rolling Mean Profile',
     'exponential_smoothing': 'Holt-Winters',
     'statespace': 'SSM',
-    'sorcerer_MAP': 'Sorcerer v0.4.1 (MAP)',
-    'sorcerer_NUTS': 'Sorcerer v0.4.1 (NUTS)',
+    'sorcerer_MAP': 'Sorcerer v0.4.4 (MAP)',
+    'sorcerer_NUTS': 'Sorcerer v0.4.4 (NUTS)',
     'lgbm_basic': 'Light GBM Basic',
     'lgbm_sklearn': 'Light GBM w. sklearn',
-    'tlp_MAP': 'TLP Regression Model (MAP)',
-    'tlp_NUTS': 'TLP Regression Model (NUTS)',
-    'naive_darts': 'Naive Drift Darts Model',
-    'tide_darts': 'TiDe Darts Model',
-    'tft_darts': 'TFT Darts Model',
-    'lgbm_darts': 'Light GBM darts Model',
-    'lgbm_feature_darts': 'Light GBM Feature Darts Model',
-    'xgboost_darts': 'XGBoost Darts Model',
+    'tlp_MAP': 'TLP Regression (MAP)',
+    'tlp_NUTS': 'TLP Regression (NUTS)',
+    'naive_darts': 'Naive Drift Darts',
+    'tide_darts': 'TiDe Darts',
+    'tft_darts': 'TFT Darts',
+    'lgbm_darts': 'Light GBM darts',
+    'lgbm_feature_darts': 'Light GBM Feature Darts',
+    'xgboost_darts': 'XGBoost Darts',
     'abs_mean_gradient_training_data': 'abs_mean_gradient_training_data',
     'deepar': 'DeepAR GluonTS',
     'naive_seasonal_darts': 'Naive Seasonal Darts',
-    'climatological_darts': 'Climatological Darts'
+    'climatological_darts': 'Climatological Darts',
+    'naive_no_drift': 'Naive Darts'
 }
+
 
 # Define a color mapping (optional)
 color_mapping = {
@@ -63,7 +65,8 @@ color_mapping = {
     'abs_mean_gradient_training_data': '#aec7e8',  # Light Blue
     'deepar': '#f7b6d2',  # Light Pink
     'naive_seasonal_darts': '#c7c7c7',  # Light Gray
-    'climatological_darts': '#dbdb8d'  # Light Yellow-green
+    'climatological_darts': '#dbdb8d',  # Light Yellow-green
+    'naive_no_drift': '#ffbb78'  # Light Orange
 }
 
 with open(os.path.join(results_dir, 'computation_times.json'), 'r') as f:
@@ -227,3 +230,5 @@ ax.add_table(table)
 # Save the table as an image
 plt.tight_layout()
 plt.savefig(r'.\figures\model_summary_table.png')
+
+# %%

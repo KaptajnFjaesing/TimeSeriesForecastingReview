@@ -42,7 +42,7 @@ def generate_lgbm_feature_darts_stacked_residuals(
         forecast_horizon: int = gmp.forecast_horizon,
         simulated_number_of_forecasts: int = gmp.simulated_number_of_forecasts,
         model_config: dict = model_config_default
-        ):
+        ) -> None:
     time_series_column_group = [x for x in df.columns if 'HOUSEHOLD' in x]
     df_features = feature_generation(df, time_series_column_group, gmp.context_length, gmp.number_of_weeks_in_a_year)
     residuals = []

@@ -48,7 +48,7 @@ def generate_climatological_darts_stacked_residuals(
         df: pd.DataFrame = gmp.df,
         forecast_horizon: int = gmp.forecast_horizon,
         simulated_number_of_forecasts: int = gmp.simulated_number_of_forecasts,
-        ):
+        ) -> None:
     time_series_column_group = [x for x in df.columns if 'HOUSEHOLD' in x]
     residuals = []
     for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts), desc = 'generate_climatological_darts_stacked_residuals'):

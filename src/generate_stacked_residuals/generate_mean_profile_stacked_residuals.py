@@ -16,9 +16,9 @@ def generate_mean_profile(df, seasonality_period):
     df_temp['week'] = df['date'].dt.strftime('%U').astype(int)
     df_temp['year'] = df['date'].dt.strftime('%Y').astype(int)
 
-    df_temp = df_temp[df_temp['week'] != 53]
+    df_temp = df_temp[df_temp['week'] != int(gmp.number_of_weeks_in_a_year)+1]
     weeks_per_year = df_temp.groupby('year').week.nunique()
-    years_with_52_weeks = weeks_per_year[weeks_per_year == 52].index
+    years_with_52_weeks = weeks_per_year[weeks_per_year == int(gmp.number_of_weeks_in_a_year)].index
     df_full_years = df_temp[df_temp['year'].isin(years_with_52_weeks)]
     yearly_means = df_full_years[[x for x in df_full_years.columns if ('HOUSEHOLD' in x or 'year' in x) ]].groupby('year').mean().reset_index()
     df_full_years_merged = df_full_years.merge(yearly_means,  on='year', how = 'left', suffixes=('', '_yearly_mean'))
@@ -41,7 +41,7 @@ def generate_mean_profile_stacked_residuals(
         simulated_number_of_forecasts: int = gmp.simulated_number_of_forecasts,
         seasonality_period: int = int(gmp.number_of_weeks_in_a_year),
         MA_window: int = 10
-        ):
+        ) -> None:
     residuals_static = []
     residuals_rolling = []
     time_series_column_group = [x for x in df.columns if 'HOUSEHOLD' in x]

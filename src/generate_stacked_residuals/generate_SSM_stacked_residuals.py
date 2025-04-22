@@ -45,7 +45,7 @@ def generate_SSM_stacked_residuals(
         forecast_horizon: int = gmp.forecast_horizon,
         simulated_number_of_forecasts: int = gmp.simulated_number_of_forecasts,
         model_config: dict = model_config_default
-        ):
+        ) -> None:
     time_series_column_group = [x for x in df.columns if 'HOUSEHOLD' in x]
     residuals = Parallel(n_jobs=gmp.n_jobs)(delayed(generate_forecast)(
         fh, df, forecast_horizon, model_config, time_series_column_group

@@ -96,7 +96,7 @@ def generate_tlp_regression_model_stacked_residuals(
         simulated_number_of_forecasts: int = gmp.simulated_number_of_forecasts,
         sampler_config: dict = sampler_config_default,
         model_config: dict = model_config_default
-):
+        ) -> None:
     time_series_column_group = [x for x in df.columns if 'HOUSEHOLD' in x]
     df_time_series = df.copy(deep=True)
     df_time_series.loc[:, 'week'] = np.sin(2*np.pi*df_time_series['date'].dt.strftime('%U').astype(int) / model_config['number_of_weeks_in_a_year'])

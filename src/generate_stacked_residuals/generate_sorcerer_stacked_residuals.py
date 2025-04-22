@@ -13,21 +13,23 @@ from src.utils import log_execution_time
 from joblib import Parallel, delayed
 
 sampler_config_default = {
-    "draws": 500,
-    "tune": 300,
+    "draws": 800,
+    "tune": 500,
     "chains": 1,
     "cores": 1,
     "sampler": "NUTS",
+    "discard_tuned_samples": True,
     "verbose": True,
     "nuts_sampler": "numpyro"
 }
 
 sampler_config_MAP = {
-    "draws": 500,
-    "tune": 300,
+    "draws": 800,
+    "tune": 500,
     "chains": 1,
     "cores": 1,
     "sampler": "MAP",
+    "discard_tuned_samples": True,
     "verbose": True,
     "nuts_sampler": "numpyro"
 }
@@ -47,10 +49,10 @@ model_config_default = {
     "shared_scale_sigma_prior": 1,
     "number_of_individual_trend_changepoints": None,  # Placeholder value
     "individual_fourier_terms": [
-        {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year,'number_of_fourier_components': 10}
+        {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year,'number_of_fourier_components': 20}
     ],
     "shared_fourier_terms": [
-        {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year,'number_of_fourier_components': 8},
+        {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year,'number_of_fourier_components': 10},
         {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year/4,'number_of_fourier_components': 4},
         {'seasonality_period_baseline': gmp.number_of_weeks_in_a_year/12,'number_of_fourier_components': 2},
     ]
@@ -65,7 +67,7 @@ def generate_forecast(fh, df, forecast_horizon, sampler_config, model_config, ti
     sorcerer = SorcererModel(
         model_config = model_config,
         model_name = "SorcererModel",
-        model_version = "v0.4.1"
+        model_version = "v0.4.4"
     )
     suppress_output(func=sorcerer.fit, training_data=training_data, sampler_config=sampler_config)
     model_forecasts = suppress_output(sorcerer.point_estimate, test_data = testing_data, point_estimate="median")

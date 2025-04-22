@@ -1,9 +1,5 @@
 # Python Time Series Forecasting Review
 
-**Jonas Petersen**: [LinkedIn](https://www.linkedin.com/in/jonas-petersen-58b916128/)<br>
-**Anders Runge Walther**:  [LinkedIn](https://www.linkedin.com/in/anders-runge-walther-5aa169138/)<br>
-**Simon Søndergaard Holm**: [LinkedIn](https://www.linkedin.com/in/simon-s%C3%B8ndergaard-holm/)<br>
-
 ## Introduction
 
 This study represents a collaborative effort to review a diverse set of Python-based time series forecasting modules. The code and project are publicly available on [GitHub](https://github.com/KaptajnFjaesing/TimeSeriesForecastingReview).
@@ -94,51 +90,84 @@ The **Sorcerer** model, from the `sorcerer` package, is a hierarchical Bayesian 
 ### TiDE
 The **TiDe** model, available in the `darts` package, combines temporal convolutional networks and recurrent neural networks for flexible time series forecasting. No feature engineering is applied for this model.
 
-### Naive Drift
-The **Naive Drift** model, implemented in `darts`, serves as a simple baseline. It predicts the next value as the last observed value
-$$\hat{y}_{t+h} = y_t+h\frac{y_{t_n}-y_{t_0}}{t_{n}-t_0},$$
-where $t_n$ and $t_0$ represent the end and start of training data, respectively. No feature engineering is applied for this model.
+### Naive
 
+The **Naive** models, implemented in `darts`, rely on straightforward extrapolation techniques to generate forecasts. No feature engineering is applied for these models. They serve as baseline approaches, offering simple yet effective methods for comparison with more complex forecasting algorithms.
 
-### Naive Seasonal
-The **Naive Seasonal** model, implemented in `darts`, predicts future values based on repeating seasonal patterns observed in the past. The forecast is computed as
-$$\hat{y}_{t+h} = y_{t-K+h},$$ 
+- The **Naive Drift** model
+
+$$
+\hat{y}_{t+h} = y_t+h\frac{y_{t_n}-y_{t_0}}{t_{n}-t_0},
+$$
+
+where $t_n$ and $t_0$ represent the end and start of training data, respectively. 
+
+- The **Naive Seasonal** model
+
+$$ \hat{y}_{t+h} = y_{t + (h \mod K) - K}, $$
+
 where $K$ is the seasonal lag.
 
+- The **Naive** model is equal to the Naive Seasonal model with $K=1$. It repeats the last observation $y_t$ for the entire forecasting horizon $\hat{y}_{t+1}, \hat{y}_{t+2},\dots \hat{y}_{t+N_{\text{forecast horizon}}}$.
+
 ### Light GBM
-The **LightGBM** model is a tree-based model for regression and classification tasks. In time series forecasting, it can be used to predict future values by learning patterns from lag features, datetime features, and optionally exogenous variables. The model is evaluated in multiple configurations;
+The **LightGBM** model is a tree-based model for regression and classification tasks. In time series forecasting, it can be used to predict future values by learning patterns from e.g. lag features, datetime features and exogenous variables. The model is evaluated in multiple configurations;
 
 - The 'basic implementation' utilize the `lightgbm` package and apply a log transformation, differencing, lagged differences and sine-based time as features. 
 - The 'sklearn implementation' utilize the `lightgbm` and `sklearn` packages, the latter is used to determine the hyperparameters via a grid search, with "day_of_year", "month", "quarter", "year" as features.
-- The 'darts implementation' utilize the `darts` package and no feature transformation.
+- The 'darts implementation' utilize the `darts` package and no feature engineering.
 - The 'feature darts implementation' utilize the `darts` package and apply a log transformation, differencing, lagged differences and sine-based time as features.
 
 ### XGBoost
 The **XGBoost** model is a regularized version of gradient-boosted decision trees. It works similarly to LightGBM but includes additional techniques like regularization and tree pruning. It is available in the `darts` package and is used without feature engineering.
 
 ### TFT
-The **Temporal Fusion Transformer (TFT)**, available in the `darts` package, is a probabilistic deep learning model designed for interpretable forecasting. Feature engineering consists of a log transformation, differencing, lagged differences and sine-based time as features.
+The **Temporal Fusion Transformer (TFT)** model, available in the `darts` package, is a probabilistic deep learning model designed for interpretable forecasting. Feature engineering consists of a log transformation, differencing, lagged differences and sine-based time as features.
 
 ### Climatological
-The **Climatological** model predicts future values as the average of past values observed at the same time index within a seasonal cycle. For example, it forecasts the next Monday based on the average of all past Mondays. It’s useful as a simple seasonal baseline, assuming stable repeating patterns over time. The forecast is computed as 
-$$
-\hat{y}_{t+h} = \frac{1}{N} \sum_{i=1}^{N} y_{t+h - iK},
-$$
-where $K$ is the season length, $N$ is the number of past seasons.
+The **Climatological** model, available in the `darts` package, predicts future values by randomly sampling from the historical data, assuming that future values follow the same distribution as past values. 
 
-### Rolling Mean
-The **Rolling Mean** model computes the mean of the last \( n \) observations as the forecast
-$$
-\hat{y}_{t+h} = \frac{1}{n} \sum_{i=t-n+h}^{t} y_i.
-$$
-It is a deterministic baseline model with no feature engineering.
+### Mean
+The mean approach is based on normalized seasonal profiles. These are generated by normalizing observations by the yearly mean 
 
-### Static Mean
-The **Static Mean** model computes the mean over the entire training dataset
 $$
-\hat{y}_{t+h} = \frac{1}{N_{\text{train}}} \sum_{i=1}^{N_{\text{train}}} y_i,
+\text{YearlyMean}_j = \frac{1}{N_j} \sum_{s=1}^{N_j} y_{j,s}
 $$
-and uses it as the forecast for all future values.
+
+and computing the average for each week. Let $y_{j,w}$ denote a datapoint for year $j$ and week $w$, then the normalized observations can be written
+
+$$
+y_{j,w}^{\text{normalized}} = \frac{y_{j,w}}{\text{YearlyMean}_j}
+$$
+
+where $N_j$ denotes the observations for year $j$. The seaonality profile is given by
+$$
+\text{SeasonalityProfile}_w = \frac{1}{N_w} \sum_{j=1}^{N_w} y_{j,w}^{\text{normalized}},
+$$
+
+where $N_w$ is the number of years with data for week $w$. Forecasts are generated via multiplying the seasonality profile with a scale
+
+$$
+\hat{y}_{t+h} = \text{scale}_t\cdot\text{SeasonalityProfile}_{t+h},
+$$ 
+
+where the scale depends on the method.
+
+- The **Static Mean** model computes the scale as follows
+
+$$
+\text{scale}_t = \text{YearlyMean}_{\text{most recent year}} + \text{mean gradient of 'YearlyMean'},
+$$
+which gives a constant scale that accounts for both the current level and a simple trend.
+
+- The **Rolling Mean** model computes the scale as the mean of the last $n$ observations as the forecast
+
+$$
+\text{scale}_t = \frac{\text{mean $y$ in last n observations at time $t$}}{\text{SeasonalityProfile}_{t-\frac{n}{2}}},
+$$
+
+the scale consists of the rolling mean normalized by the seasonality profile evaluated at the middle of the rolling window, $n$. This makes the forecast more responsive to recent trends in the data.
+
 
 ### DeepAR
 The **DeepAR** model, implemented in the `gluonts` package, uses autoregressive recurrent neural networks to generate probabilistic forecasts. Feature engineering includes log transformation and differencing. Rolling windows are used for training, validation, and testing, with the splits defined as \( y_{1:N-2\cdot\text{fh}} \) for training, \( y_{N-2\cdot\text{fh}:N-\text{fh}} \) for validation, and \( y_{N-\text{fh}:N} \) for testing. Predictions are back-transformed to the original scale.

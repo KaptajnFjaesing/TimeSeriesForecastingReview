@@ -95,7 +95,7 @@ def generate_lgbm_basic_stacked_residuals(
         context_length: int = gmp.context_length,
         seasonality_period: float = gmp.number_of_weeks_in_a_year,
         model_config: dict = model_config_default
-        ):
+        ) -> None:
     time_series_column_group = [x for x in df.columns if 'HOUSEHOLD' in x]
     residuals = []
     feature_columns = [str(x) for x in range(1,context_length)]+['time_sine']

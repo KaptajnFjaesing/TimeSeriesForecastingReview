@@ -41,7 +41,7 @@ def generate_lgbm_w_sklearn_stacked_residuals(
         simulated_number_of_forecasts: int = gmp.simulated_number_of_forecasts,
         forecast_horizon: int = gmp.forecast_horizon,
         model_config: dict = model_config_default
-        ):
+        ) -> None:
     df_time_series = df.copy(deep = True)
     df_time_series["day_of_year"] = df_time_series["date"].dt.dayofyear
     df_time_series["month"] = df_time_series["date"].dt.month

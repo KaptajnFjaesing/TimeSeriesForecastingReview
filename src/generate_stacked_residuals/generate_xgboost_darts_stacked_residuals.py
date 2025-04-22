@@ -24,7 +24,7 @@ def generate_xgboost_darts_stacked_residuals(
         forecast_horizon: int = gmp.forecast_horizon,
         simulated_number_of_forecasts: int = gmp.simulated_number_of_forecasts,
         model_config: dict = model_config_default
-        ):
+        ) -> None:
     time_series_column_group = [x for x in df.columns if 'HOUSEHOLD' in x]
     residuals = []
     for fh in tqdm(range(forecast_horizon,forecast_horizon+simulated_number_of_forecasts), desc = 'generate_xgboost_darts_stacked_residuals'):
