@@ -28,6 +28,7 @@ tlp_regression_model = {git = "https://github.com/KaptajnFjaesing/tlp_regression
 darts = "^0.30.0"
 gluonts = "^0.15.1"
 lightning = "^2.4.0"
+tornado = "^6.5"
 
 
 [tool.poetry.group.dev.dependencies]

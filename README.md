@@ -167,7 +167,7 @@ which gives a constant scale that accounts for both the current level and a simp
 - The **Rolling Mean** model computes the scale as the mean of the last $n$ observations as the forecast
 
 $$
-\text{scale}_{t} = \frac{\text{mean $y$ in last n observations at time $t$}}{\text{SeasonalityProfile}_{t-\frac{n}{2}}},
+\text{scale}_t = \frac{\text{mean $y$ in last n observations at time $t$}}{\text{SeasonalityProfile}_{t-\frac{n}{2}}},
 $$
 
 the scale consists of the rolling mean normalized by the seasonality profile evaluated at the middle of the rolling window, $n$. This makes the forecast more responsive to recent trends in the data.
